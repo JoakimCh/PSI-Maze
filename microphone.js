@@ -33,9 +33,9 @@ export class MicrophoneTRNG {
         .map(key => settings[key] === undefined ? '?' : Number(settings[key])).join('/')
       const setup = {
         label: track.label || 'Default microphone',
-        signature: [track.label, settings.deviceId, this.#context.sampleRate, capture, 'maze-v1'].join('|'),
+        signature: [track.label, settings.deviceId, this.#context.sampleRate, capture, 'steering-v2'].join('|'),
         rate: this.#context.sampleRate,
-        rules: 'maze-v1'
+        rules: 'steering-v2'
       }
       this.#node = new AudioWorkletNode(this.#context, 'TRNG', {
         processorOptions: {

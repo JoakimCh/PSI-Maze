@@ -1,10 +1,11 @@
 # PSI Maze
 
-A microphone-driven maze for TVs, desktops and phones. Every maze is a single winding corridor of 179 grid steps. A yellow dot moves forward, accelerating when a microphone-derived 32-bit word contains an imbalance in either direction.
+An installable, microphone-driven PWA for TVs, desktops and phones. The game splits each 32-bit word into four bytes. Each set bit adds half a point to its direction, giving left, right, up and down a 0–4 weight each. Opposing directions cancel.
 
-- **Training** hides the timer and unlocks results every seven local calendar days with a completed run. The days can be nonconsecutive. A block's typical time is the median of its seven daily medians. Runs later on the seventh day still count toward that block.
-- **Free Play** shows the timer and leaves the training history untouched.
-- **History** shows revealed blocks, days and run times. Its CSV export includes revealed runs. History is stored on the device that ran the app.
+- **Maze** uses the directional signal that points along the corridor. The dot can stop and can only move forward. Every maze is 179 grid steps. A player sees the same layout at all four rotations, then moves on to a new layout.
+- **Apple Catch** uses both axes. The arena wraps at each edge. Red apples spawn at the same shortest distance from the yellow dot, and five catches complete a run.
+- **Players** are local to the browser. Use the player button to add, rename or switch profiles.
+- **History** reveals a player's results for each mode after every seven local calendar days with a completed run. Days can be nonconsecutive. A block's typical time is the median of its seven daily medians. Runs later on the seventh day still count toward that block. Elapsed times stay hidden during play. History and CSV exports show only revealed runs.
 - On a TV, use the D-pad to move focus and Select to activate a control. On a keyboard, use arrow keys or Tab, Enter and Escape.
 
 ## Run or host it
@@ -15,4 +16,4 @@ For GitHub Pages, deploy from the root of the default branch. All app URLs are r
 
 ## Microphone extractor
 
-`TRNG.audioWorklet.js` comes from Joakim Christiansen's [TRNG Mind Over Matter Experiments](https://github.com/JoakimCh/TRNG-Mind-Over-Matter-Experiments/blob/main/TRNG.audioWorklet.js). The browser adapter creates the same worklet and requests one 32-bit word per block, at roughly 30 blocks per second. The maze uses the UFO experiment's absolute bit imbalance to compute its target speed.
+`TRNG.audioWorklet.js` comes from Joakim Christiansen's [TRNG Mind Over Matter Experiments](https://github.com/JoakimCh/TRNG-Mind-Over-Matter-Experiments/blob/main/TRNG.audioWorklet.js). The browser adapter requests one 32-bit word per block, at roughly 30 blocks per second.

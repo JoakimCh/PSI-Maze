@@ -1,7 +1,7 @@
 const PREFIX = 'psi-maze:'
-const CACHE = PREFIX + 'v1'
+const CACHE = PREFIX + 'v2'
 const shell = [
-  './index.html', './style.css', './app.js', './maze.js', './microphone.js', './history.js',
+  './index.html', './style.css', './app.js', './maze.js', './steering.js', './apple.js', './microphone.js', './history.js',
   './TRNG.audioWorklet.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png'
 ]
 const index = new URL('./index.html', self.registration.scope).href

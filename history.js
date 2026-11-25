@@ -33,8 +33,16 @@ export function summarize(runs) {
 let database
 function openDatabase() {
   database ??= new Promise((resolve, reject) => {
-    const request = indexedDB.open('psi-maze', 1)
-    request.onupgradeneeded = () => request.result.createObjectStore('runs', { keyPath: 'id', autoIncrement: true })
+    const request = indexedDB.open('psi-maze', 2)
+    request.onupgradeneeded = event => {
+      const db = request.result
+      if (event.oldVersion === 0) db.createObjectStore('runs', { keyPath: 'id', autoIncrement: true })
+      if (event.oldVersion < 2) {
+        const profiles = db.createObjectStore('players', { keyPath: 'id' })
+        profiles.createIndex('nameKey', 'nameKey', { unique: true })
+        profiles.add({ id: 'default', name: 'Player 1', nameKey: 'player 1' })
+      }
+    }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   }).catch(error => {
@@ -44,26 +52,34 @@ function openDatabase() {
   return database
 }
 
-async function accessRuns(mode, action) {
+async function access(storeName, mode, action) {
   const db = await openDatabase()
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction('runs', mode)
-    const request = action(transaction.objectStore('runs'))
+    const transaction = db.transaction(storeName, mode)
+    const request = action(transaction.objectStore(storeName))
     transaction.oncomplete = () => resolve(request.result)
     transaction.onabort = () => reject(transaction.error)
   })
 }
 
-export const loadRuns = () => accessRuns('readonly', store => store.getAll())
-export const saveRun = run => accessRuns('readwrite', store => store.add(run))
+export const loadRuns = () => access('runs', 'readonly', store => store.getAll())
+export const saveRun = run => access('runs', 'readwrite', store => store.add(run))
 
-export function historyCSV(blocks) {
+export const loadPlayers = () => access('players', 'readonly', store => store.getAll())
+
+export function savePlayer(id, name) {
+  const player = { id: id ?? crypto.randomUUID(), name, nameKey: name.toLowerCase() }
+  return access('players', 'readwrite', store => id ? store.put(player) : store.add(player))
+}
+
+export function historyCSV(blocks, mode, player) {
   const quote = value => '"' + String(value).replaceAll('"', '""') + '"'
-  const rows = [['block', 'local_day', 'completed_at_iso', 'elapsed_ms', 'microphone', 'sample_rate_hz', 'rules']]
+  const rows = [['mode', 'player', 'block', 'local_day', 'completed_at_iso', 'elapsed_ms', 'microphone', 'sample_rate_hz', 'rules']]
+  const safeCell = value => /^[=+@\-\t\r\n]/.test(value) ? "'" + value : value
   blocks.forEach((block, i) => block.days.forEach(day => day.runs.forEach(run => {
     // Avoid formula interpretation when opening exports in spreadsheets.
-    const label = /^[=+@\-\t\r\n]/.test(run.setup.label) ? "'" + run.setup.label : run.setup.label
-    rows.push([i + 1, day.key, new Date(run.at).toISOString(), Math.round(run.ms), label, run.setup.rate, run.setup.rules])
+    rows.push([mode, safeCell(player), i + 1, day.key, new Date(run.at).toISOString(), Math.round(run.ms),
+      safeCell(run.setup.label), run.setup.rate, run.setup.rules])
   })))
   return rows.map(row => row.map(quote).join(',')).join('\r\n') + '\r\n'
 }

@@ -1,14 +1,18 @@
-import { DISTANCE, drawMaze, generateMaze, targetSpeed } from './maze.js'
+import { drawMaze, mazeForRun, moveInMaze } from './maze.js'
+import { APPLES_PER_RUN, drawAppleRun, moveTowardApple, newAppleRun } from './apple.js'
+import { direction } from './steering.js'
 import { MicrophoneTRNG } from './microphone.js'
-import { DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize } from './history.js'
+import { DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize, loadPlayers, savePlayer } from './history.js'
 
 const byId = id => document.getElementById(id)
-const canvas = byId('maze')
-const timer = byId('timer')
+const canvas = byId('arena')
 const status = byId('status')
 const start = byId('start')
-const next = byId('new-maze')
-const navigation = ['training', 'free', 'history']
+const navigation = ['maze', 'apple', 'history', 'players']
+const gameModes = { maze: 'Maze', apple: 'Apple Catch', legacy: 'Earlier maze' }
+const profileForm = byId('player-form')
+const playerName = byId('player-name')
+const playerStatus = byId('player-status')
 const shortDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
 const fullDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 const timeOfDay = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
@@ -16,10 +20,17 @@ const dateFromKey = key => new Date(key + 'T12:00:00')
 const seconds = ms => (ms / 1000).toFixed(1) + ' s'
 const signalTimeout = 6500
 
-let mode = 'training'
-let path = generateMaze()
-let active
+let page = 'maze'
+let gameMode = 'maze'
+let historyMode = 'maze'
+let player = { id: 'default', name: 'Player 1' }
+let players = [player]
 let runs = []
+let active
+let saving = false
+let initialized = false
+let editing
+let preview
 let storageError = false
 let historyRequest = 0
 let previousTrainingDay = dayKey(new Date())
@@ -48,12 +59,22 @@ function metric(label, value) {
   return card
 }
 
+function selectedRuns(mode) {
+  return runs.filter(run => (run.playerId ?? 'default') === player.id && (run.mode ?? 'legacy') === mode)
+}
+
 function showProgress(renderResults = true) {
-  const history = summarize(runs)
+  const history = summarize(selectedRuns(historyMode))
   const { blocks } = history
-  const progress = storageError ? 'Training history is unavailable on this device.' : progressText(history)
-  byId('progress-label').textContent = progress
-  byId('history-progress').textContent = progress
+  const unavailable = 'Training history is unavailable on this device.'
+  byId('progress-label').textContent = storageError ? unavailable : progressText(summarize(selectedRuns(gameMode)))
+  byId('history-progress').textContent = storageError ? unavailable : historyMode === 'legacy'
+    ? 'Times from the original maze use the earlier movement rules.'
+    : progressText(history)
+  byId('history-legacy').hidden = !selectedRuns('legacy').length
+  for (const mode of Object.keys(gameModes)) {
+    byId('history-' + mode).setAttribute('aria-pressed', String(historyMode === mode))
+  }
   byId('export').hidden = !blocks.length
   if (renderResults) renderHistory(blocks)
 }
@@ -62,7 +83,7 @@ function renderHistory(blocks) {
   const results = byId('results')
   results.replaceChildren()
   if (!blocks.length) {
-    results.append(element('p', 'Your first results unlock after seven training days.'))
+    results.append(element('p', historyMode === 'legacy' ? 'No completed seven-day blocks from the earlier maze.' : 'Your first results unlock after seven training days.'))
     return
   }
 
@@ -146,7 +167,22 @@ async function refreshHistory() {
     if (request !== historyRequest) return
     storageError = true
   }
-  showProgress(mode === 'history')
+  showProgress(page === 'history')
+}
+
+function appleCount(count) {
+  byId('apple-count').textContent = count + ' of ' + APPLES_PER_RUN + ' apples'
+}
+
+function newBoard() {
+  if (gameMode === 'maze') {
+    preview = mazeForRun(player.id, selectedRuns('maze').length)
+    drawMaze(canvas, preview)
+  } else {
+    preview = newAppleRun()
+    drawAppleRun(canvas, preview)
+    appleCount(0)
+  }
 }
 
 function release(run) {
@@ -155,14 +191,13 @@ function release(run) {
   run.mic.stop()
   cancelAnimationFrame(run.frame)
   run.wake?.release().catch(() => {})
-  next.disabled = false
 }
 
 function ready(message = 'Press Start to enable the microphone.') {
   status.textContent = message
   start.textContent = 'Start'
-  timer.textContent = '0.0 s'
-  drawMaze(canvas, path, 0, false)
+  start.disabled = !initialized || saving
+  newBoard()
 }
 
 function stopRun(run, message) {
@@ -171,44 +206,62 @@ function stopRun(run, message) {
   ready(message)
 }
 
-function setMode(selected, focus = false) {
-  if (selected === mode && focus) return
+function setPage(selected) {
+  if (page === selected && initialized) return
   if (active) release(active)
-  mode = selected
+  page = selected
   for (const name of navigation) {
     const button = byId('nav-' + name)
     if (name === selected) button.setAttribute('aria-current', 'page')
     else button.removeAttribute('aria-current')
   }
-  byId('game').hidden = selected === 'history'
+  const isGame = selected === 'maze' || selected === 'apple'
+  byId('game').hidden = !isGame
   byId('history').hidden = selected !== 'history'
-  byId('game-title').textContent = selected === 'free' ? 'Free Play' : 'Training'
-  byId('progress-label').hidden = selected !== 'training'
-  timer.hidden = selected !== 'free'
-  ready()
-  if (selected === 'history') refreshHistory()
-  if (focus) window.scrollTo(0, 0)
+  byId('players').hidden = selected !== 'players'
+  if (isGame) {
+    gameMode = selected
+    byId('game-title').textContent = gameModes[selected]
+    byId('apple-count').hidden = gameMode !== 'apple'
+    canvas.setAttribute('aria-label', gameMode === 'apple'
+      ? 'A yellow dot moves toward a red apple. The arena wraps at every edge.'
+      : 'A yellow dot follows a winding blue corridor to a marked finish line.')
+    ready()
+  }
+  if (selected === 'history') {
+    historyMode = gameMode
+    refreshHistory()
+  }
+  if (selected === 'players') {
+    profileForm.hidden = true
+    renderPlayers()
+  }
+  showProgress(false)
+  window.scrollTo(0, 0)
 }
 
 async function finish(run, at) {
   release(run)
-  const elapsed = at - run.started
-  drawMaze(canvas, path, DISTANCE, true)
-  start.textContent = 'Start'
+  saving = true
+  start.disabled = true
+  start.textContent = 'Next run'
   status.textContent = 'Finished.'
-  if (mode === 'free') timer.textContent = seconds(elapsed)
-  next.focus({ preventScroll: true })
-  if (mode !== 'training') return
   const date = new Date()
   try {
     await saveRun({
-      day: dayKey(date), at: date.getTime(), localTime: timeOfDay.format(date),
-      ms: elapsed, setup: run.setup
+      playerId: run.playerId, mode: run.mode, day: dayKey(date), at: date.getTime(),
+      localTime: timeOfDay.format(date), ms: at - run.started, setup: run.setup
     })
     await refreshHistory()
   } catch {
-    if (mode === 'training' && !active && status.textContent === 'Finished.') {
+    if (page === run.mode && player.id === run.playerId && status.textContent === 'Finished.') {
       status.textContent = 'Finished. This run could not be saved.'
+    }
+  } finally {
+    saving = false
+    start.disabled = false
+    if (page === run.mode && player.id === run.playerId && document.activeElement === document.body) {
+      start.focus({ preventScroll: true })
     }
   }
 }
@@ -221,43 +274,63 @@ function animate(run, now) {
     return
   }
   if (run.started !== undefined) {
-    const time = Math.max(run.frameAt, Math.min(now, run.lastWord + 150))
-    const delta = time - run.frameAt
+    const time = Math.max(run.frameAt, Math.min(now, run.lastWord + 120))
+    const delta = Math.min(time - run.frameAt, 50)
     if (delta > 0) {
-      run.speed += (run.target - run.speed) * (1 - Math.exp(-delta / 190))
-      const advance = run.speed * delta / 1000
-      if (run.position + advance >= DISTANCE) {
-        finish(run, run.frameAt + (DISTANCE - run.position) / advance * delta)
+      const blend = 1 - Math.exp(-delta / 115)
+      run.velocity.x += (run.target.x - run.velocity.x) * blend
+      run.velocity.y += (run.target.y - run.velocity.y) * blend
+      let finishedIn
+      if (run.mode === 'maze') {
+        const moved = moveInMaze(run.board, run.position, run.velocity, delta)
+        run.position = moved.position
+        finishedIn = moved.finishedIn
+        drawMaze(canvas, run.board, run.position)
+      } else {
+        const oldCount = run.board.caught
+        finishedIn = moveTowardApple(run.board, run.velocity, delta)
+        drawAppleRun(canvas, run.board)
+        if (oldCount !== run.board.caught) appleCount(run.board.caught)
+      }
+      if (finishedIn !== undefined) {
+        finish(run, time - delta + finishedIn)
         return
       }
-      run.position += advance
       run.frameAt = time
-      drawMaze(canvas, path, run.position, false)
     }
-    if (mode === 'free') timer.textContent = seconds(now - run.started)
   }
   run.frame = requestAnimationFrame(time => animate(run, time))
 }
 
-async function startRun() {
+function startRun() {
   if (active) {
     stopRun(active, 'Run stopped. Press Start to try again.')
     return
   }
-  const run = { mic: new MicrophoneTRNG(), position: 0, speed: 2.2 }
+  if (!initialized || saving) return
+  launchRun()
+}
+
+async function launchRun() {
+  newBoard()
+  const run = {
+    mic: new MicrophoneTRNG(), position: 0, velocity: { x: 0, y: 0 },
+    mode: gameMode, playerId: player.id, board: preview
+  }
   active = run
-  next.disabled = true
   start.textContent = 'Cancel'
-  timer.textContent = '0.0 s'
   status.textContent = 'Waiting for microphone access…'
-  drawMaze(canvas, path, 0, false)
   try {
     await run.mic.start((word, setup) => {
       if (active !== run) return
       const now = performance.now()
-      if (run.lastWord !== undefined && now - run.lastWord > 350) run.frameAt = now
+      if (run.lastWord !== undefined && now - run.lastWord > 350) {
+        run.frameAt = now
+        run.velocity.x = 0
+        run.velocity.y = 0
+      }
       run.lastWord = now
-      run.target = targetSpeed(word)
+      run.target = direction(word)
       if (run.started !== undefined) return
       run.started = now
       run.frameAt = now
@@ -283,26 +356,91 @@ async function startRun() {
   }
 }
 
-for (const name of navigation) byId('nav-' + name).onclick = () => setMode(name, true)
-start.onclick = startRun
-next.onclick = () => {
-  let replacement = generateMaze()
-  while (replacement.every((cell, i) => cell === path[i]) ||
-    replacement.every((cell, i) => cell === path.at(-1 - i))) {
-    replacement = generateMaze()
-  }
-  path = replacement
-  ready('New maze ready. Press Start to begin.')
-  start.focus({ preventScroll: true })
+function rememberPlayer(id) {
+  try { localStorage.setItem('psi-maze-player', id) } catch {}
 }
 
+function updatePlayerButton() {
+  const button = byId('nav-players')
+  button.textContent = player.name
+  button.setAttribute('aria-label', 'Switch player. Current player: ' + player.name)
+}
+
+function selectPlayer(id) {
+  const selected = players.find(candidate => candidate.id === id)
+  if (!selected) return
+  player = selected
+  rememberPlayer(id)
+  updatePlayerButton()
+  setPage(gameMode)
+  byId('nav-' + gameMode).focus({ preventScroll: true })
+}
+
+function renderPlayers() {
+  const list = byId('player-list')
+  list.replaceChildren()
+  const sorted = players.slice().sort((a, b) => a.name.localeCompare(b.name))
+  for (const profile of sorted) {
+    const button = element('button', profile.name, 'secondary')
+    if (profile.id === player.id) button.setAttribute('aria-current', 'true')
+    button.onclick = () => selectPlayer(profile.id)
+    list.append(button)
+  }
+}
+
+function editPlayer(profile) {
+  editing = profile
+  playerStatus.textContent = ''
+  profileForm.hidden = false
+  playerName.value = profile?.name ?? ''
+  playerName.focus()
+}
+
+byId('add-player').onclick = () => editPlayer()
+byId('rename-player').onclick = () => editPlayer(player)
+byId('cancel-player-form').onclick = () => {
+  profileForm.hidden = true
+  byId(editing ? 'rename-player' : 'add-player').focus()
+}
+profileForm.onsubmit = async event => {
+  event.preventDefault()
+  const name = playerName.value.trim()
+  if (!name) {
+    playerStatus.textContent = 'Enter a player name.'
+    return
+  }
+  const submit = profileForm.querySelector('button.primary')
+  submit.disabled = true
+  try {
+    const id = await savePlayer(editing?.id, name)
+    players = await loadPlayers()
+    profileForm.hidden = true
+    playerStatus.textContent = ''
+    if (page === 'players') selectPlayer(id)
+  } catch (error) {
+    playerStatus.textContent = error?.name === 'ConstraintError'
+      ? 'That player name is already in use.'
+      : 'Could not save the player.'
+  } finally {
+    submit.disabled = false
+  }
+}
+
+for (const name of navigation) byId('nav-' + name).onclick = () => setPage(name)
+for (const name of Object.keys(gameModes)) {
+  byId('history-' + name).onclick = () => {
+    historyMode = name
+    showProgress()
+  }
+}
+start.onclick = startRun
 byId('export').onclick = () => {
-  const { blocks } = summarize(runs)
+  const { blocks } = summarize(selectedRuns(historyMode))
   if (!blocks.length) return
-  const url = URL.createObjectURL(new Blob([historyCSV(blocks)], { type: 'text/csv;charset=utf-8' }))
+  const url = URL.createObjectURL(new Blob([historyCSV(blocks, gameModes[historyMode], player.name)], { type: 'text/csv;charset=utf-8' }))
   const link = element('a')
   link.href = url
-  link.download = 'psi-maze-history-' + dayKey(new Date()) + '.csv'
+  link.download = 'psi-maze-' + historyMode + '-' + dayKey(new Date()) + '.csv'
   link.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
@@ -323,9 +461,11 @@ document.addEventListener('keydown', event => {
   if (event.altKey || event.ctrlKey || event.metaKey) return
   if (event.key === 'Escape' || event.key === 'GoBack' || event.key === 'BrowserBack') {
     if (active) stopRun(active, 'Run stopped. Press Start to try again.')
-    else if (mode !== 'training') {
-      setMode('training', true)
-      byId('nav-training').focus()
+    else if (page === 'players' && !profileForm.hidden) {
+      byId('cancel-player-form').click()
+    } else if (page !== 'maze') {
+      setPage(page === 'apple' ? 'maze' : gameMode)
+      byId('nav-' + page).focus()
     } else return
     event.preventDefault()
     return
@@ -333,10 +473,11 @@ document.addEventListener('keydown', event => {
 
   const direction = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].indexOf(event.key)
   if (direction === -1) return
-  const candidates = [...document.querySelectorAll('button:not(:disabled), summary')].filter(el => el.getClientRects().length)
   const focused = document.activeElement
+  if (focused === playerName && direction % 2 === 0) return
+  const candidates = [...document.querySelectorAll('button:not(:disabled), summary, input')].filter(el => el.getClientRects().length)
   if (!candidates.includes(focused)) {
-    (mode === 'history' ? byId('nav-history') : start).focus()
+    (byId('game').hidden || start.disabled ? byId('nav-' + page) : start).focus()
     event.preventDefault()
     return
   }
@@ -387,5 +528,19 @@ window.addEventListener('appinstalled', () => {
 })
 navigator.serviceWorker?.register('./service-worker.js').catch(error => console.warn('Offline cache:', error))
 
-setMode('training')
-refreshHistory()
+async function initialize() {
+  try {
+    players = await loadPlayers()
+    const lastPlayer = localStorage.getItem('psi-maze-player')
+    player = players.find(candidate => candidate.id === lastPlayer) ?? players[0]
+  } catch {
+    storageError = true
+  }
+  updatePlayerButton()
+  await refreshHistory()
+  initialized = true
+  if (!byId('game').hidden) ready()
+  if (page === 'players') renderPlayers()
+}
+setPage('maze')
+initialize()
