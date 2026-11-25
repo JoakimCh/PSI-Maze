@@ -5,7 +5,7 @@ export class MicrophoneTRNG {
   #node
   #closed = false
 
-  async start(onWord, onError, { onDiagnostics, onCapture, disableProcessing = false, discardFactor = 0 } = {}) {
+  async start(onWord, onError, { onDiagnostics, onCapture, disableProcessing = true, discardFactor = 0 } = {}) {
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
       throw new Error('Microphone access needs a supported browser on HTTPS.')
     }
@@ -32,8 +32,9 @@ export class MicrophoneTRNG {
       if (this.#closed) return
       const track = this.#stream.getAudioTracks()[0]
       const settings = track.getSettings()
+      const unknownProcessing = disableProcessing ? 'off-requested' : '?'
       const capture = ['echoCancellation', 'noiseSuppression', 'autoGainControl']
-        .map(key => settings[key] === undefined ? '?' : Number(settings[key])).join('/')
+        .map(key => settings[key] === undefined ? unknownProcessing : Number(settings[key])).join('/')
       const setup = {
         label: track.label || 'Default microphone',
         signature: [track.label, settings.deviceId, this.#context.sampleRate, capture, 'steering-v2'].join('|'),
