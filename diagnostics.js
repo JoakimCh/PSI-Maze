@@ -1,4 +1,5 @@
 import { MicrophoneTRNG } from './microphone.js'
+import { DISCARD_CHOICES, discardLabel } from './capture-settings.js'
 import { countSetBits } from './steering.js'
 
 const percent = (value, total) => total ? (100 * value / total).toFixed(1) + '%' : '—'
@@ -7,7 +8,6 @@ const trackFlag = value => {
   if (typeof value === 'string') return 'On (' + value + ')'
   return typeof value === 'boolean' ? (value ? 'On' : 'Off') : 'Not reported'
 }
-const discardChoices = [0, .5, .75, .9, .95]
 
 export function bitBalance(ones, bits) {
   const expected = bits / 2
@@ -64,7 +64,7 @@ function drawBalance(canvas, z) {
   }
 }
 
-export function createDiagnostics(section) {
+export function createDiagnostics(section, getCaptureSettings) {
   const get = id => section.querySelector('#diag-' + id)
   const start = get('start')
   const processing = get('processing')
@@ -73,7 +73,14 @@ export function createDiagnostics(section) {
   const chart = get('balance-chart')
   const fields = [...section.querySelectorAll('[data-diagnostic]')]
   let run
-  let discardIndex = 0
+  let discardIndex
+
+  function prepare() {
+    discardIndex = DISCARD_CHOICES.indexOf(getCaptureSettings().discardFactor)
+    discard.textContent = discardLabel(DISCARD_CHOICES[discardIndex])
+    processing.setAttribute('aria-pressed', 'true')
+    processing.textContent = 'Processing: game settings'
+  }
   drawBalance(chart, null)
 
   function showBalance({ ones, bits }) {
@@ -113,7 +120,7 @@ export function createDiagnostics(section) {
   async function launch() {
     if (stop()) return
     const current = { mic: new MicrophoneTRNG(), bits: 0, ones: 0 }
-    const disableProcessing = processing.getAttribute('aria-pressed') === 'true'
+    const useGameProcessing = processing.getAttribute('aria-pressed') === 'true'
     run = current
     start.textContent = 'Cancel'
     processing.disabled = true
@@ -128,8 +135,8 @@ export function createDiagnostics(section) {
         current.bits += 32
         current.ones += countSetBits(word)
       }, fail, {
-        disableProcessing,
-        discardFactor: discardChoices[discardIndex],
+        audio: useGameProcessing ? getCaptureSettings().audio : true,
+        discardFactor: DISCARD_CHOICES[discardIndex],
         onDiagnostics: data => {
           if (run !== current) return
           report(data)
@@ -144,8 +151,8 @@ export function createDiagnostics(section) {
           get('echo').textContent = trackFlag(settings.echoCancellation)
           get('gain').textContent = trackFlag(settings.autoGainControl)
           start.textContent = 'Stop test'
-          status.textContent = disableProcessing
-            ? 'Testing with processing off requested'
+          status.textContent = useGameProcessing
+            ? 'Testing with game processing settings'
             : 'Testing with browser defaults'
         }
       })
@@ -160,12 +167,12 @@ export function createDiagnostics(section) {
   processing.onclick = () => {
     const enabled = processing.getAttribute('aria-pressed') === 'true'
     processing.setAttribute('aria-pressed', String(!enabled))
-    processing.textContent = enabled ? 'Processing: browser defaults' : 'Processing: request off'
+    processing.textContent = enabled ? 'Processing: browser defaults' : 'Processing: game settings'
   }
   discard.onclick = () => {
-    discardIndex = (discardIndex + 1) % discardChoices.length
-    discard.textContent = 'Sample discard: ' + percent(discardChoices[discardIndex], 1).replace('.0%', '%')
+    discardIndex = (discardIndex + 1) % DISCARD_CHOICES.length
+    discard.textContent = discardLabel(DISCARD_CHOICES[discardIndex])
   }
   start.onclick = launch
-  return { stop }
+  return { prepare, stop }
 }

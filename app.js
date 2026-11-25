@@ -1,3 +1,4 @@
+import { createCaptureSettings } from './capture-settings.js'
 import { createDiagnostics } from './diagnostics.js'
 import { drawMaze, mazeForRun, moveInMaze } from './maze.js'
 import { APPLES_PER_RUN, drawAppleRun, moveTowardApple, newAppleRun } from './apple.js'
@@ -10,8 +11,9 @@ const canvas = byId('arena')
 const phoneLayout = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 550px)')
 const status = byId('status')
 const start = byId('start')
-const navigation = ['maze', 'apple', 'history', 'diagnostics', 'players']
-const diagnostics = createDiagnostics(byId('diagnostics'))
+const navigation = ['maze', 'apple', 'history', 'diagnostics', 'advanced', 'players']
+const getCaptureSettings = createCaptureSettings(byId('advanced'))
+const diagnostics = createDiagnostics(byId('diagnostics'), getCaptureSettings)
 const gameModes = { maze: 'Maze', apple: 'Apple Catch', legacy: 'Earlier maze' }
 const profileForm = byId('player-form')
 const playerName = byId('player-name')
@@ -226,6 +228,8 @@ function setPage(selected) {
   byId('history').hidden = selected !== 'history'
   byId('players').hidden = selected !== 'players'
   byId('diagnostics').hidden = selected !== 'diagnostics'
+  byId('advanced').hidden = selected !== 'advanced'
+  if (selected === 'diagnostics') diagnostics.prepare()
   if (isGame) {
     gameMode = selected
     byId('game-title').textContent = gameModes[selected]
@@ -347,7 +351,7 @@ async function launchRun() {
         : setup
       status.textContent = 'Run in progress'
       start.textContent = 'Stop'
-    }, message => stopRun(run, message))
+    }, message => stopRun(run, message), getCaptureSettings())
     if (active !== run) return
     run.listening = performance.now()
     if (run.started === undefined) status.textContent = 'Listening for microphone input…'

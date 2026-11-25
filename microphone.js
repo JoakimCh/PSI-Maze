@@ -5,7 +5,9 @@ export class MicrophoneTRNG {
   #node
   #closed = false
 
-  async start(onWord, onError, { onDiagnostics, onCapture, disableProcessing = true, discardFactor = 0 } = {}) {
+  async start(onWord, onError, {
+    onDiagnostics, onCapture, audio = true, discardFactor = 0
+  } = {}) {
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
       throw new Error('Microphone access needs a supported browser on HTTPS.')
     }
@@ -13,9 +15,6 @@ export class MicrophoneTRNG {
     this.#context = new AudioContext()
     // Call both from the Start gesture, before crossing an asynchronous boundary.
     const resume = this.#context.resume()
-    const audio = disableProcessing
-      ? { noiseSuppression: false, echoCancellation: false, autoGainControl: false }
-      : true
     const mic = navigator.mediaDevices.getUserMedia({ audio }).then(stream => {
       if (this.#closed) {
         stream.getTracks().forEach(track => track.stop())
@@ -32,9 +31,14 @@ export class MicrophoneTRNG {
       if (this.#closed) return
       const track = this.#stream.getAudioTracks()[0]
       const settings = track.getSettings()
-      const unknownProcessing = disableProcessing ? 'off-requested' : '?'
       const capture = ['echoCancellation', 'noiseSuppression', 'autoGainControl']
-        .map(key => settings[key] === undefined ? unknownProcessing : Number(settings[key])).join('/')
+        .map(key => {
+          const value = settings[key]
+          if (typeof value === 'boolean') return Number(value)
+          if (value !== undefined) return value
+          if (audio[key] === undefined) return '?'
+          return audio[key] ? 'on-requested' : 'off-requested'
+        }).join('/')
       const setup = {
         label: track.label || 'Default microphone',
         signature: [track.label, settings.deviceId, this.#context.sampleRate, capture, 'steering-v2'].join('|'),

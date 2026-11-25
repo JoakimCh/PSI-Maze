@@ -26,9 +26,11 @@ Both boards are wide on desktops, TVs, and tablets, and tall on phones.
 
 ## TRNG diagnostics
 
-PSI Maze requests noise suppression, echo cancellation, and automatic gain control off in both game modes and in Diagnostics. The browser and device decide which settings they can apply.
+PSI Maze requests noise suppression, echo cancellation, and automatic gain control off in both game modes and in Diagnostics. The browser and device decide which settings they can apply. The extractor discards 90% of each shuffled sample block by default, using the remaining 10% to generate bits.
 
-Open **Diagnostics** and start a test in a quiet room. Switch to **Processing: browser defaults** for a comparison run. Check the browser-reported settings along with **32-bit words**, **Samples skipped by zero gate**, and **Tied sample pairs**. **Sample discard** changes how many samples the extractor considers during the test.
+Open **Advanced** to change the game settings saved on this device. Each processing control cycles between Off, On, and Browser default. **Restore defaults** sets all three to Off and sample discard to 90%.
+
+Open **Diagnostics** and start a test in a quiet room. It starts with your Advanced settings. Switch to **Processing: browser defaults** for a comparison run. Check the browser-reported settings along with **32-bit words**, **Samples skipped by zero gate**, and **Tied sample pairs**. **Sample discard** changes how many samples the extractor considers during the test.
 
 **Live bit balance** follows the Z-score display from [The Guess Experiment](https://github.com/JoakimCh/the-guess-experiment/blob/main/stats.js). It counts ones in every complete TRNG word since the test started. For a fair, independent stream of `n` bits, the expected count is `n / 2` and its standard deviation is `sqrt(n) / 2`. The marker shows how far the observed count is from the expected count in standard deviations. Positive values show more ones and negative values show more zeros.
 
