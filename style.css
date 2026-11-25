@@ -97,3 +97,17 @@ button[aria-pressed="true"] { border-color: var(--blue); color: var(--text); }
   padding: .35rem .6rem;
 }
 #player-form input:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+
+.diagnostic-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin-bottom: .55rem; }
+#diag-status, .diagnostic-note { color: var(--muted); }
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: .55rem;
+  margin-block: .7rem;
+}
+.diagnostic-grid section { background: var(--surface); border: 1px solid var(--edge); border-radius: .55rem; padding: .6rem .7rem; }
+.diagnostic-grid h2 { font-size: 1.1rem; }
+.diagnostic-grid dl { display: grid; grid-template-columns: 1fr auto; gap: .2rem .55rem; margin: .45rem 0 0; }
+.diagnostic-grid dt { color: var(--muted); }
+.diagnostic-grid dd { margin: 0; max-width: 12rem; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

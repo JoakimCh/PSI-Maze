@@ -1,3 +1,4 @@
+import { createDiagnostics } from './diagnostics.js'
 import { drawMaze, mazeForRun, moveInMaze } from './maze.js'
 import { APPLES_PER_RUN, drawAppleRun, moveTowardApple, newAppleRun } from './apple.js'
 import { direction } from './steering.js'
@@ -9,7 +10,8 @@ const canvas = byId('arena')
 const phoneLayout = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 550px)')
 const status = byId('status')
 const start = byId('start')
-const navigation = ['maze', 'apple', 'history', 'players']
+const navigation = ['maze', 'apple', 'history', 'diagnostics', 'players']
+const diagnostics = createDiagnostics(byId('diagnostics'))
 const gameModes = { maze: 'Maze', apple: 'Apple Catch', legacy: 'Earlier maze' }
 const profileForm = byId('player-form')
 const playerName = byId('player-name')
@@ -212,6 +214,7 @@ function stopRun(run, message) {
 function setPage(selected) {
   if (page === selected && initialized) return
   if (active) release(active)
+  if (page === 'diagnostics') diagnostics.stop()
   page = selected
   for (const name of navigation) {
     const button = byId('nav-' + name)
@@ -222,6 +225,7 @@ function setPage(selected) {
   byId('game').hidden = !isGame
   byId('history').hidden = selected !== 'history'
   byId('players').hidden = selected !== 'players'
+  byId('diagnostics').hidden = selected !== 'diagnostics'
   if (isGame) {
     gameMode = selected
     byId('game-title').textContent = gameModes[selected]
@@ -453,7 +457,8 @@ byId('export').onclick = () => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && active) stopRun(active, 'Run stopped when the app left the screen.')
-  if (!document.hidden) refreshHistory()
+  if (document.hidden) diagnostics.stop('Test stopped when the app left the screen.')
+  else refreshHistory()
 })
 setInterval(() => {
   const today = dayKey(new Date())
@@ -466,7 +471,9 @@ setInterval(() => {
 document.addEventListener('keydown', event => {
   if (event.altKey || event.ctrlKey || event.metaKey) return
   if (event.key === 'Escape' || event.key === 'GoBack' || event.key === 'BrowserBack') {
-    if (active) stopRun(active, 'Run stopped. Press Start to try again.')
+    if (page === 'diagnostics' && diagnostics.stop()) {
+      byId('diag-start').focus()
+    } else if (active) stopRun(active, 'Run stopped. Press Start to try again.')
     else if (page === 'players' && !profileForm.hidden) {
       byId('cancel-player-form').click()
     } else if (page !== 'maze') {

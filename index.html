@@ -20,6 +20,7 @@
         <button id="nav-maze" aria-current="page">Maze</button>
         <button id="nav-apple">Apple Catch</button>
         <button id="nav-history">History</button>
+        <button id="nav-diagnostics">Diagnostics</button>
         <button id="nav-players" aria-label="Switch player">Player 1</button>
       </nav>
       <button id="install" hidden>Install</button>
@@ -51,6 +52,47 @@
         </div>
         <p id="history-progress" role="status"></p>
         <div id="results"></div>
+      </section>
+      <section id="diagnostics" aria-labelledby="diagnostics-title" hidden>
+        <div class="history-heading"><h1 id="diagnostics-title">TRNG diagnostics</h1></div>
+        <div class="diagnostic-controls">
+          <button id="diag-processing" class="secondary" aria-pressed="false">Processing: browser defaults</button>
+          <button id="diag-discard" class="secondary">Sample discard: 0%</button>
+          <button id="diag-start" class="primary">Start test</button>
+        </div>
+        <p id="diag-status" role="status">Start a test to inspect live microphone input.</p>
+        <div class="diagnostic-grid">
+          <section aria-labelledby="diag-generator-title">
+            <h2 id="diag-generator-title">Generator</h2>
+            <dl>
+              <dt>32-bit words</dt><dd id="diag-words" data-diagnostic>—</dd>
+              <dt>Rejected blocks</dt><dd id="diag-rejected" data-diagnostic>—</dd>
+              <dt>Tied sample pairs</dt><dd id="diag-ties" data-diagnostic>—</dd>
+              <dt>Samples used per block</dt><dd id="diag-budget" data-diagnostic>—</dd>
+            </dl>
+          </section>
+          <section aria-labelledby="diag-input-title">
+            <h2 id="diag-input-title">Input signal</h2>
+            <dl>
+              <dt>Average level (RMS)</dt><dd id="diag-rms" data-diagnostic>—</dd>
+              <dt>Peak level</dt><dd id="diag-peak" data-diagnostic>—</dd>
+              <dt>Exactly zero samples</dt><dd id="diag-zero" data-diagnostic>—</dd>
+              <dt>Samples skipped by zero gate</dt><dd id="diag-skipped" data-diagnostic>—</dd>
+              <dt>Input frames missing</dt><dd id="diag-missing" data-diagnostic>—</dd>
+            </dl>
+          </section>
+          <section aria-labelledby="diag-capture-title">
+            <h2 id="diag-capture-title">Browser capture</h2>
+            <dl>
+              <dt>Microphone</dt><dd id="diag-mic" data-diagnostic>—</dd>
+              <dt>Mic / worklet sample rate</dt><dd id="diag-rates" data-diagnostic>—</dd>
+              <dt>Noise suppression</dt><dd id="diag-noise" data-diagnostic>—</dd>
+              <dt>Echo cancellation</dt><dd id="diag-echo" data-diagnostic>—</dd>
+              <dt>Automatic gain</dt><dd id="diag-gain" data-diagnostic>—</dd>
+            </dl>
+          </section>
+        </div>
+        <p class="diagnostic-note">The zero gate skips an input frame when its first three samples are zero. A block is rejected when it yields fewer than 32 bits.</p>
       </section>
       <section id="players" aria-labelledby="players-title" hidden>
         <div class="history-heading">

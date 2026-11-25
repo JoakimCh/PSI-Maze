@@ -24,6 +24,10 @@ Both boards are wide on desktops, TVs, and tablets, and tall on phones.
 - **History** reveals a player's results for each mode after every seven local calendar days with a completed run. Days can be nonconsecutive. A block's typical time is the median of its seven daily medians. Runs later on the seventh day still count toward that block. Elapsed times stay hidden during play. History and CSV exports show only revealed runs.
 - On a TV, use the D-pad to move focus and Select to activate a control. On a keyboard, use arrow keys or Tab, Enter and Escape.
 
+## TRNG diagnostics
+
+Open **Diagnostics** and start a test in a quiet room. Compare **32-bit words**, **Samples skipped by zero gate**, and **Tied sample pairs**. Run the same test with **Processing: request off** and compare the browser-reported settings and generation rate. The browser and device decide which processing controls are available. **Sample discard** changes how many samples the extractor considers during the test.
+
 ## Run or host it
 
 Serve this directory over HTTPS or localhost, for example with `python3 -m http.server 8000`. Open the page, press **Start** and allow microphone access. Android TV needs a browser with microphone access and AudioWorklet support. Installation is available through compatible browsers. Once cached, the app works offline. Audio is processed on-device.

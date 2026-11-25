@@ -5,7 +5,7 @@ export class MicrophoneTRNG {
   #node
   #closed = false
 
-  async start(onWord, onError) {
+  async start(onWord, onError, { onDiagnostics, onCapture, disableProcessing = false, discardFactor = 0 } = {}) {
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
       throw new Error('Microphone access needs a supported browser on HTTPS.')
     }
@@ -13,7 +13,10 @@ export class MicrophoneTRNG {
     this.#context = new AudioContext()
     // Call both from the Start gesture, before crossing an asynchronous boundary.
     const resume = this.#context.resume()
-    const mic = navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    const audio = disableProcessing
+      ? { noiseSuppression: false, echoCancellation: false, autoGainControl: false }
+      : true
+    const mic = navigator.mediaDevices.getUserMedia({ audio }).then(stream => {
       if (this.#closed) {
         stream.getTracks().forEach(track => track.stop())
         return
@@ -40,18 +43,21 @@ export class MicrophoneTRNG {
       this.#node = new AudioWorkletNode(this.#context, 'TRNG', {
         processorOptions: {
           blockSize: Math.trunc(this.#context.sampleRate / 30),
-          outputSize: 4
+          outputSize: 4,
+          discardFactor,
+          diagnostics: !!onDiagnostics
         }
       })
       this.#node.port.onmessage = ({ data }) => {
-        if (!this.#closed && !data.error && data.data.byteLength === 4) {
-          onWord(new Uint32Array(data.data)[0], setup)
-        }
+        if (this.#closed) return
+        if (data.diagnostics) onDiagnostics?.(data.diagnostics)
+        else if (!data.error && data.data?.byteLength === 4) onWord?.(new Uint32Array(data.data)[0], setup)
       }
       this.#node.onprocessorerror = () => onError('Microphone processing stopped. Try again.')
       track.addEventListener('ended', () => onError('Microphone disconnected. Try again.'), { once: true })
       this.#source = this.#context.createMediaStreamSource(this.#stream)
       this.#source.connect(this.#node).connect(this.#context.destination)
+      onCapture?.(setup, settings)
     } catch (error) {
       this.stop()
       throw error
