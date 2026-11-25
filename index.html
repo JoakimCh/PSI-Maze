@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b12">
+  <meta name="description" content="Train with a microphone-driven maze. Reveal your times after every seven training days.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+  <title>PSI Maze</title>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-dot" aria-hidden="true"></span> PSI Maze</div>
+      <nav aria-label="Main navigation">
+        <button id="nav-training" aria-current="page">Training</button>
+        <button id="nav-free">Free Play</button>
+        <button id="nav-history">History</button>
+      </nav>
+      <button id="install" hidden>Install</button>
+    </header>
+    <main>
+      <section id="game" aria-labelledby="game-title">
+        <div class="game-heading">
+          <h1 id="game-title">Training</h1>
+          <p id="progress-label">Loading training history…</p>
+          <output id="timer" aria-label="Elapsed time" hidden>0.0 s</output>
+        </div>
+        <div class="board">
+          <canvas id="maze" width="748" height="428" role="img" aria-label="A yellow dot follows a winding blue corridor to a marked finish line."></canvas>
+        </div>
+        <div class="game-controls">
+          <p id="status" role="status">Press Start to enable the microphone.</p>
+          <button id="new-maze" class="secondary">New Maze</button>
+          <button id="start" class="primary">Start</button>
+        </div>
+      </section>
+      <section id="history" aria-labelledby="history-title" hidden>
+        <div class="history-heading">
+          <h1 id="history-title">Training history</h1>
+          <button id="export" class="secondary" hidden>Export CSV</button>
+        </div>
+        <p id="history-progress" role="status"></p>
+        <div id="results"></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
