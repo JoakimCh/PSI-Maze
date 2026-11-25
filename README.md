@@ -2,7 +2,7 @@
 
 An installable, microphone-driven PWA for TVs, desktops and phones. The game splits each 32-bit word into four bytes. Each set bit adds half a point to its direction, giving left, right, up and down a 0–4 weight each. Opposing directions cancel.
 
-- **Maze** uses the directional signal that points along the corridor. The dot can stop and can only move forward. Every maze is 179 grid steps. A player sees the same layout at all four rotations, then moves on to a new layout.
+- **Maze** uses the directional signal that points along the corridor. The dot can stop and can only move forward. Each run gets a new 179-step layout. Finishing a run advances the next entrance through the top, right, bottom and left sides.
 - **Apple Catch** uses both axes. The arena wraps at each edge. Red apples spawn at the same shortest distance from the yellow dot, and five catches complete a run.
 - **Players** are local to the browser. Use the player button to add, rename or switch profiles.
 - **History** reveals a player's results for each mode after every seven local calendar days with a completed run. Days can be nonconsecutive. A block's typical time is the median of its seven daily medians. Runs later on the seventh day still count toward that block. Elapsed times stay hidden during play. History and CSV exports show only revealed runs.

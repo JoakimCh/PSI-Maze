@@ -44,22 +44,11 @@ export function generateMaze(random = Math.random) {
   return best
 }
 
-export function mazeForRun(playerId, completed) {
-  // Four successive runs share a base layout, so each path segment faces
-  // all four directions before a different layout is introduced.
-  let seed = 2166136261
-  for (const character of playerId + ':' + Math.floor(completed / 4)) {
-    seed = Math.imul(seed ^ character.charCodeAt(0), 16777619)
-  }
-  const random = () => {
-    seed = (Math.imul(seed, 1664525) + 1013904223) | 0
-    return (seed >>> 0) / 4294967296
-  }
-
+export function mazeForRun(completed) {
   const rotation = completed % 4
   let columns = COLUMNS
   let rows = ROWS
-  let path = generateMaze(random)
+  let path = generateMaze()
   const first = path[0]
   const toTop = first < COLUMNS ? 0
     : first % COLUMNS === COLUMNS - 1 ? 3

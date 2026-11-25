@@ -176,7 +176,7 @@ function appleCount(count) {
 
 function newBoard() {
   if (gameMode === 'maze') {
-    preview = mazeForRun(player.id, selectedRuns('maze').length)
+    preview = mazeForRun(selectedRuns('maze').length)
     drawMaze(canvas, preview)
   } else {
     preview = newAppleRun()
@@ -242,6 +242,7 @@ function setPage(selected) {
 
 async function finish(run, at) {
   release(run)
+  preview = undefined
   saving = true
   start.disabled = true
   start.textContent = 'Next run'
@@ -312,7 +313,7 @@ function startRun() {
 }
 
 async function launchRun() {
-  newBoard()
+  if (!preview || gameMode === 'apple') newBoard()
   const run = {
     mic: new MicrophoneTRNG(), position: 0, velocity: { x: 0, y: 0 },
     mode: gameMode, playerId: player.id, board: preview
@@ -334,7 +335,9 @@ async function launchRun() {
       if (run.started !== undefined) return
       run.started = now
       run.frameAt = now
-      run.setup = setup
+      run.setup = run.mode === 'maze'
+        ? { ...setup, signature: setup.signature + '|fresh-layouts', rules: setup.rules + '-fresh-layouts' }
+        : setup
       status.textContent = 'Run in progress'
       start.textContent = 'Stop'
     }, message => stopRun(run, message))

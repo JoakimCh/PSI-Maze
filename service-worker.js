@@ -1,5 +1,5 @@
 const PREFIX = 'psi-maze:'
-const CACHE = PREFIX + 'v2'
+const CACHE = PREFIX + 'v3'
 const shell = [
   './index.html', './style.css', './app.js', './maze.js', './steering.js', './apple.js', './microphone.js', './history.js',
   './TRNG.audioWorklet.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png'
@@ -8,7 +8,8 @@ const index = new URL('./index.html', self.registration.scope).href
 const assets = new Set(shell.map(path => new URL(path, self.registration.scope).href))
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(shell)))
+  const requests = shell.map(path => new Request(new URL(path, self.registration.scope), { cache: 'reload' }))
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(requests)))
 })
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
