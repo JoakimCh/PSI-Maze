@@ -1,6 +1,7 @@
 export const COLUMNS = 15
 export const ROWS = 12
 export const DISTANCE = COLUMNS * ROWS - 1
+export const CELL_SIZE = 40
 
 function neighbors(cell, columns, rows) {
   const x = cell % columns
@@ -87,34 +88,36 @@ export function mazeForRun(completed, portrait = false) {
   }
 }
 
-export function moveInMaze(maze, position, velocity, milliseconds) {
+export function moveInMaze(maze, position, pixels) {
   const { path, columns } = maze
-  let remaining = milliseconds
+  let remaining = (Math.abs(pixels.x) + Math.abs(pixels.y)) / CELL_SIZE
   while (position < DISTANCE && remaining > 0) {
     const step = Math.floor(position)
     const from = path[step]
     const to = path[step + 1]
     const x = to % columns - from % columns
     const y = Math.floor(to / columns) - Math.floor(from / columns)
-    const speed = (x * velocity.x + y * velocity.y) * 31 / 1000
-    if (speed <= 0) return { position }
-    const timeToNext = (step + 1 - position) / speed
-    if (remaining < timeToNext) return { position: position + speed * remaining }
-    position = step + 1
-    remaining -= timeToNext
+    const along = (x * pixels.x + y * pixels.y) / CELL_SIZE
+    if (along <= 0) break
+    const distance = Math.min(along, remaining)
+    const next = Math.min(step + 1, position + distance)
+    if (next < step + 1) return next
+    remaining = distance - (next - position)
+    position = next
+    // A single word can travel through straight cells, but stops at the first turn.
+    if (position === DISTANCE || path[step + 2] - to !== to - from) break
   }
-  return { position, finishedIn: position === DISTANCE ? milliseconds - remaining : undefined }
+  return position
 }
 
-const cell = 40
 const pad = 14
 const backgrounds = new WeakMap()
 
 function drawBackground(canvas, maze) {
   const { path, columns, side, endSide } = maze
   const ctx = canvas.getContext('2d')
-  const x = index => pad + index % columns * cell
-  const y = index => pad + Math.floor(index / columns) * cell
+  const x = index => pad + index % columns * CELL_SIZE
+  const y = index => pad + Math.floor(index / columns) * CELL_SIZE
   const end = path.at(-1)
   const gaps = new Map([[path[0], side], [end, endSide]])
   const openings = new Set()
@@ -132,19 +135,19 @@ function drawBackground(canvas, maze) {
     const top = y(i)
     if (i % columns === 0 && gaps.get(i) !== 'left') {
       ctx.moveTo(left, top)
-      ctx.lineTo(left, top + cell)
+      ctx.lineTo(left, top + CELL_SIZE)
     }
     if (i < columns && gaps.get(i) !== 'top') {
       ctx.moveTo(left, top)
-      ctx.lineTo(left + cell, top)
+      ctx.lineTo(left + CELL_SIZE, top)
     }
     if (!openings.has(i * 2) && gaps.get(i) !== 'right') {
-      ctx.moveTo(left + cell, top)
-      ctx.lineTo(left + cell, top + cell)
+      ctx.moveTo(left + CELL_SIZE, top)
+      ctx.lineTo(left + CELL_SIZE, top + CELL_SIZE)
     }
     if (!openings.has(i * 2 + 1) && gaps.get(i) !== 'bottom') {
-      ctx.moveTo(left, top + cell)
-      ctx.lineTo(left + cell, top + cell)
+      ctx.moveTo(left, top + CELL_SIZE)
+      ctx.lineTo(left + CELL_SIZE, top + CELL_SIZE)
     }
   }
   ctx.strokeStyle = '#3479ed'
@@ -154,7 +157,7 @@ function drawBackground(canvas, maze) {
 
   const delta = end - path.at(-2)
   ctx.save()
-  ctx.translate(x(end) + cell / 2, y(end) + cell / 2)
+  ctx.translate(x(end) + CELL_SIZE / 2, y(end) + CELL_SIZE / 2)
   if (Math.abs(delta) === 1) ctx.rotate(Math.PI / 2)
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 6; col++) {
@@ -180,8 +183,8 @@ export function drawMaze(canvas, maze, progress = 0) {
   let background = backgrounds.get(maze)
   if (!background) {
     background = document.createElement('canvas')
-    background.width = columns * cell + pad * 2
-    background.height = rows * cell + pad * 2
+    background.width = columns * CELL_SIZE + pad * 2
+    background.height = rows * CELL_SIZE + pad * 2
     drawBackground(background, maze)
     backgrounds.set(maze, background)
   }
@@ -197,5 +200,5 @@ export function drawMaze(canvas, maze, progress = 0) {
   const next = path[Math.min(step + 1, DISTANCE)]
   const x = current % columns + (next % columns - current % columns) * fraction
   const y = Math.floor(current / columns) + (Math.floor(next / columns) - Math.floor(current / columns)) * fraction
-  drawDot(ctx, pad + (x + .5) * cell, pad + (y + .5) * cell, progress === DISTANCE ? 11 : 9, '#ffe04e', '#ffc529')
+  drawDot(ctx, pad + (x + .5) * CELL_SIZE, pad + (y + .5) * CELL_SIZE, progress === DISTANCE ? 11 : 9, '#ffe04e', '#ffc529')
 }

@@ -1,8 +1,7 @@
-import { COLUMNS, ROWS, drawDot } from './maze.js'
+import { COLUMNS, ROWS, CELL_SIZE, drawDot } from './maze.js'
 
 const spawnDistance = 3.8
 const catchRadius = .57
-const cell = 40
 const pad = 14
 
 const wrap = (value, size) => ((value % size) + size) % size
@@ -23,34 +22,33 @@ export function newAppleRun(portrait = false) {
   return { ...game, target: spawnApple(game) }
 }
 
-export function moveTowardApple(game, velocity, milliseconds) {
+export function moveTowardApple(game, pixels) {
   const { width, height } = game
-  const speed = 19
-  const magnitude = Math.hypot(velocity.x, velocity.y)
-  const scale = magnitude > 1.2 ? 1.2 / magnitude : 1
-  const dx = velocity.x * speed * scale * milliseconds / 1000
-  const dy = velocity.y * speed * scale * milliseconds / 1000
+  const dx = pixels.x / CELL_SIZE
+  const dy = pixels.y / CELL_SIZE
   const tx = nearest(game.target.x - game.x, width)
   const ty = nearest(game.target.y - game.y, height)
   const stepSquared = dx * dx + dy * dy
-  // Test the whole movement segment, including a hit reached across a seam.
-  if (stepSquared > 0) {
-    const along = tx * dx + ty * dy
-    const offset = tx * tx + ty * ty - catchRadius * catchRadius
-    const discriminant = along * along - stepSquared * offset
-    if (discriminant >= 0) {
-      const fraction = (along - Math.sqrt(discriminant)) / stepSquared
-      if (fraction >= 0 && fraction <= 1) {
-        game.x = wrap(game.x + dx * fraction, width)
-        game.y = wrap(game.y + dy * fraction, height)
-        game.caught++
-        game.target = spawnApple(game)
-        return milliseconds * fraction
-      }
-    }
-  }
+  if (!stepSquared) return false
+
+  // Find the nearest point on the step, including a step across a seam.
+  const fraction = Math.max(0, Math.min(1, (tx * dx + ty * dy) / stepSquared))
+  const caught = Math.hypot(tx - dx * fraction, ty - dy * fraction) <= catchRadius
   game.x = wrap(game.x + dx, width)
   game.y = wrap(game.y + dy, height)
+  if (caught) {
+    game.caught++
+    game.target = spawnApple(game)
+  }
+  return caught
+}
+
+export function interpolateAppleStep(game, from, fraction) {
+  const { width, height } = game
+  return {
+    x: wrap(from.x + nearest(game.x - from.x, width) * fraction, width),
+    y: wrap(from.y + nearest(game.y - from.y, height) * fraction, height)
+  }
 }
 
 function wrappedDot(ctx, { x, y }, { width, height }, radius, color, glow) {
@@ -58,14 +56,14 @@ function wrappedDot(ctx, { x, y }, { width, height }, radius, color, glow) {
   const xs = x < margin ? [x, x + width] : x > width - margin ? [x, x - width] : [x]
   const ys = y < margin ? [y, y + height] : y > height - margin ? [y, y - height] : [y]
   for (const a of xs) {
-    for (const b of ys) drawDot(ctx, pad + a * cell, pad + b * cell, radius, color, glow)
+    for (const b of ys) drawDot(ctx, pad + a * CELL_SIZE, pad + b * CELL_SIZE, radius, color, glow)
   }
 }
 
-export function drawAppleRun(canvas, game) {
+export function drawAppleRun(canvas, game, dot = game) {
   const { width, height } = game
-  const w = width * cell + pad * 2
-  const h = height * cell + pad * 2
+  const w = width * CELL_SIZE + pad * 2
+  const h = height * CELL_SIZE + pad * 2
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w
     canvas.height = h
@@ -76,13 +74,13 @@ export function drawAppleRun(canvas, game) {
   ctx.strokeStyle = '#3479ed'
   ctx.lineWidth = 3
   ctx.setLineDash([7, 8])
-  ctx.strokeRect(pad, pad, width * cell, height * cell)
+  ctx.strokeRect(pad, pad, width * CELL_SIZE, height * CELL_SIZE)
   ctx.setLineDash([])
   ctx.save()
   ctx.beginPath()
-  ctx.rect(pad, pad, width * cell, height * cell)
+  ctx.rect(pad, pad, width * CELL_SIZE, height * CELL_SIZE)
   ctx.clip()
   wrappedDot(ctx, game.target, game, 11, '#ff493f', '#e13a37')
-  wrappedDot(ctx, game, game, 9, '#ffe04e', '#ffc529')
+  wrappedDot(ctx, dot, game, 9, '#ffe04e', '#ffc529')
   ctx.restore()
 }

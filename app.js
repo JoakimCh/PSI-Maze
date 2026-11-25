@@ -2,8 +2,8 @@ import { CAPTURE_BATCH_MS, WordCadence, canDeliver } from './word-cadence.js'
 import { createRateTest } from './rate-test.js'
 import { createCaptureSettings } from './capture-settings.js'
 import { createDiagnostics } from './diagnostics.js'
-import { drawMaze, mazeForRun, moveInMaze } from './maze.js'
-import { drawAppleRun, moveTowardApple, newAppleRun } from './apple.js'
+import { DISTANCE, drawMaze, mazeForRun, moveInMaze } from './maze.js'
+import { drawAppleRun, interpolateAppleStep, moveTowardApple, newAppleRun } from './apple.js'
 import { direction } from './steering.js'
 import { MicrophoneTRNG } from './microphone.js'
 import { CATCHES_PER_DAY, DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize, loadPlayers, savePlayer } from './history.js'
@@ -299,8 +299,7 @@ function newSessionMaze(run, now) {
   canvas.toggleAttribute('data-portrait', portrait)
   run.position = 0
   run.started = undefined
-  run.velocity = { x: 0, y: 0 }
-  run.target = { x: 0, y: 0 }
+  run.motion = undefined
   run.cadence = new WordCadence(run.rate, now)
   run.nextCheck = now + rateWindow + CAPTURE_BATCH_MS
   delete run.restartAt
@@ -311,32 +310,48 @@ function newSessionMaze(run, now) {
   status.textContent = 'Listening for microphone input…'
 }
 
-function advanceMotion(run, until, now) {
-  while (run.started !== undefined && run.frameAt < until) {
-    const delta = Math.min(until - run.frameAt, 50)
-    const blend = 1 - Math.exp(-delta / 115)
-    run.velocity.x += (run.target.x - run.velocity.x) * blend
-    run.velocity.y += (run.target.y - run.velocity.y) * blend
-    if (run.mode === 'maze') {
-      const moved = moveInMaze(run.board, run.position, run.velocity, delta)
-      run.position = moved.position
-      if (moved.finishedIn !== undefined) {
-        drawMaze(canvas, run.board, run.position)
-        finishMaze(run, run.frameAt + moved.finishedIn, now)
-        return false
-      }
-    } else {
-      const caughtIn = moveTowardApple(run.board, run.velocity, delta)
-      if (caughtIn !== undefined) {
-        const at = run.frameAt + caughtIn
-        saveCompletion(run, at)
-        run.started = at
-        appleCount(run.board.caught)
-      }
+function applyWord(run, update, now) {
+  if (run.started === undefined) {
+    run.started = update.at
+    status.textContent = 'Run in progress'
+    start.textContent = 'Stop'
+  }
+
+  const signal = direction(update.word)
+  const pixels = { x: signal.x * run.multiplier, y: signal.y * run.multiplier }
+  if (run.mode === 'maze') {
+    const from = run.position
+    run.position = moveInMaze(run.board, from, pixels)
+    if (run.position !== from) run.motion = { from, at: update.at }
+    if (run.position === DISTANCE) {
+      drawMaze(canvas, run.board, run.position)
+      finishMaze(run, update.at, now)
+      return false
     }
-    run.frameAt += delta
+  } else {
+    const from = { x: run.board.x, y: run.board.y }
+    const caught = moveTowardApple(run.board, pixels)
+    if (pixels.x || pixels.y) run.motion = { from, at: update.at }
+    if (caught) {
+      saveCompletion(run, update.at)
+      run.started = update.at
+      appleCount(run.board.caught)
+    }
   }
   return true
+}
+
+function drawSession(run, now) {
+  const motion = run.motion
+  // Interpolate a short, fixed-distance step. Rendering never advances game state.
+  const fraction = motion ? Math.min(1, (now - motion.at) / Math.min(65, 500 / run.rate)) : 1
+  if (run.mode === 'maze') {
+    const position = fraction === 1 ? run.position : motion.from + (run.position - motion.from) * fraction
+    drawMaze(canvas, run.board, position)
+  } else {
+    const dot = fraction === 1 ? run.board : interpolateAppleStep(run.board, motion.from, fraction)
+    drawAppleRun(canvas, run.board, dot)
+  }
 }
 
 function animate(run, now) {
@@ -366,19 +381,9 @@ function animate(run, now) {
   }
 
   for (const update of run.cadence.take(now)) {
-    if (!advanceMotion(run, update.at, now)) return
-    run.target = update.word === undefined ? { x: 0, y: 0 } : direction(update.word)
-    if (update.word !== undefined && run.started === undefined) {
-      run.started = update.at
-      run.frameAt = update.at
-      status.textContent = 'Run in progress'
-      start.textContent = 'Stop'
-    }
+    if (update.word !== undefined && !applyWord(run, update, now)) return
   }
-
-  if (run.started === undefined || !advanceMotion(run, now, now)) return
-  if (run.mode === 'maze') drawMaze(canvas, run.board, run.position)
-  else drawAppleRun(canvas, run.board)
+  if (run.started !== undefined) drawSession(run, now)
 }
 
 function startRun() {
@@ -397,7 +402,7 @@ async function launchRun() {
   if (!preview || gameMode === 'apple') newBoard()
   const settings = getCaptureSettings()
   const run = {
-    mic: new MicrophoneTRNG(), position: 0, velocity: { x: 0, y: 0 }, target: { x: 0, y: 0 },
+    mic: new MicrophoneTRNG(), position: 0, multiplier: settings.multiplier,
     mode: gameMode, playerId: player.id, board: preview, rate: settings.rates[gameMode],
     completedMazes: selectedRuns('maze').length
   }
@@ -407,7 +412,10 @@ async function launchRun() {
   try {
     await run.mic.start((word, setup) => {
       if (active !== run || !run.cadence || run.restartAt !== undefined) return
-      run.setup ??= setup
+      if (!run.setup) {
+        const rules = 'pixel-steps-' + run.rate + 'hz-' + run.multiplier + 'x'
+        run.setup = { ...setup, rules, signature: setup.signature + '|' + rules }
+      }
       run.cadence.add(word, performance.now())
     }, message => stopRun(run, message), {
       ...settings,

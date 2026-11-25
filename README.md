@@ -18,13 +18,13 @@ A **Maze** day needs one completed maze and uses the median time. An **Apple Cat
 
 ## How the microphone steers the dot
 
-The [UFO experiment’s extractor](https://github.com/JoakimCh/TRNG-Mind-Over-Matter-Experiments/blob/main/TRNG.audioWorklet.js) shuffles microphone samples and compares the two lowest bits of their quantized magnitudes in pairs. It drops ties and emits a `1` when the first value is smaller or a `0` when it is larger. Each 32-bit word has one byte per direction. Every set bit contributes equally, and opposing directions cancel.
+The [UFO experiment’s extractor](https://github.com/JoakimCh/TRNG-Mind-Over-Matter-Experiments/blob/main/TRNG.audioWorklet.js) shuffles microphone samples and compares the two lowest bits of their quantized magnitudes in pairs. It drops ties and emits a `1` when the first value is smaller or a `0` when it is larger. Each 32-bit word has one byte per direction. Every set bit contributes equally, and opposing directions cancel. Each word moves the dot by its net directional weight in board pixels. The animation ends at that position.
 
 The experiment asks whether focusing on a direction can bias those bits. Ordinary microphone fluctuations also move the dot. Training history tracks changes in run times. A test of intention would need controlled comparisons.
 
 ## Advanced and Diagnostics
 
-- **Advanced** defaults to **90% sample discard**, **24 steering updates/s for Maze**, **10 for Apple Catch**, and requests noise suppression, echo cancellation, and automatic gain control off.
+- **Advanced** defaults to **90% sample discard**, **24 steering updates/s for Maze**, **10 for Apple Catch**, and requests noise suppression, echo cancellation, and automatic gain control off. The movement multiplier defaults to **1×** and controls the distance each word moves the dot.
 - **Test settings** measures source throughput and the percentage of steering updates supplied over ten seconds. The game collects words in **200 ms batches** and plays them evenly during the next batch. Spare words can fill a gap in the following batch before expiring. A test can pass with occasional misses. A sustained shortage stops play and points you to Advanced.
 - **Diagnostics** shows the input level, skipped samples, ties, rejected blocks, and the processing settings reported by the browser. It can compare your saved settings with **Processing: browser defaults**. **Live bit balance** shows how far the count of ones is from the fair-bit expectation, using the Z-score display from [The Guess Experiment](https://github.com/JoakimCh/the-guess-experiment/blob/main/stats.js).
 
