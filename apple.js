@@ -4,7 +4,6 @@ const spawnDistance = 3.8
 const catchRadius = .57
 const cell = 40
 const pad = 14
-export const APPLES_PER_RUN = 5
 
 const wrap = (value, size) => ((value % size) + size) % size
 const nearest = (delta, size) => wrap(delta + size / 2, size) - size / 2
@@ -45,9 +44,8 @@ export function moveTowardApple(game, velocity, milliseconds) {
         game.x = wrap(game.x + dx * fraction, width)
         game.y = wrap(game.y + dy * fraction, height)
         game.caught++
-        if (game.caught === APPLES_PER_RUN) return milliseconds * fraction
         game.target = spawnApple(game)
-        return
+        return milliseconds * fraction
       }
     }
   }
@@ -84,7 +82,7 @@ export function drawAppleRun(canvas, game) {
   ctx.beginPath()
   ctx.rect(pad, pad, width * cell, height * cell)
   ctx.clip()
-  if (game.caught < APPLES_PER_RUN) wrappedDot(ctx, game.target, game, 11, '#ff493f', '#e13a37')
+  wrappedDot(ctx, game.target, game, 11, '#ff493f', '#e13a37')
   wrappedDot(ctx, game, game, 9, '#ffe04e', '#ffc529')
   ctx.restore()
 }

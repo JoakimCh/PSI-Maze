@@ -34,7 +34,14 @@
           <p id="apple-count" hidden></p>
         </div>
         <div class="board">
-          <canvas id="arena" width="748" height="428" role="img" aria-label="A yellow dot follows a winding blue corridor to a marked finish line."></canvas>
+          <canvas id="arena" width="628" height="508" role="img" aria-label="A yellow dot follows a winding blue corridor to a marked finish line."></canvas>
+          <div id="maze-countdown" role="dialog" aria-labelledby="countdown-title" hidden>
+            <div class="countdown-card">
+              <h2 id="countdown-title">Next maze in</h2>
+              <p id="countdown-number">5</p>
+              <button id="cancel-countdown" class="primary">Cancel</button>
+            </div>
+          </div>
         </div>
         <div class="game-controls">
           <p id="status" role="status">Press Start to enable the microphone.</p>
@@ -49,7 +56,6 @@
         <div id="history-modes" aria-label="History mode">
           <button id="history-maze" class="secondary" aria-pressed="true">Maze</button>
           <button id="history-apple" class="secondary" aria-pressed="false">Apple Catch</button>
-          <button id="history-legacy" class="secondary" aria-pressed="false" hidden>Earlier maze</button>
         </div>
         <p id="history-progress" role="status"></p>
         <div id="results"></div>
@@ -115,6 +121,16 @@
           <button id="advanced-discard" class="secondary">Sample discard: 90%</button>
           <button id="advanced-reset" class="secondary">Restore defaults</button>
         </div>
+        <div class="rate-settings">
+          <label for="rate-maze">Maze <output id="rate-maze-value">24 words/s</output>
+            <input id="rate-maze" type="range" min="1" max="30" step="1" value="24">
+          </label>
+          <label for="rate-apple">Apple Catch <output id="rate-apple-value">10 words/s</output>
+            <input id="rate-apple" type="range" min="1" max="30" step="1" value="10">
+          </label>
+        </div>
+        <button id="advanced-test" class="primary">Test settings</button>
+        <p id="advanced-test-result" role="status"></p>
         <p id="advanced-status" role="status">These settings apply when you start a game. Diagnostics lets you compare settings without saving changes.</p>
       </section>
       <section id="players" aria-labelledby="players-title" hidden>

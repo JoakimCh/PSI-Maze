@@ -1,4 +1,5 @@
 export const DAYS_PER_BLOCK = 7
+export const CATCHES_PER_DAY = 6
 
 export function dayKey(date) {
   const part = n => String(n).padStart(2, '0')
@@ -11,18 +12,22 @@ export function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
-export function summarize(runs) {
+export function summarize(runs, mode) {
   const days = new Map()
   for (const run of runs.slice().sort((a, b) => a.at - b.at)) {
     if (!days.has(run.day)) days.set(run.day, { key: run.day, runs: [] })
     days.get(run.day).runs.push(run)
   }
-  const ordered = [...days.values()].sort((a, b) => a.key.localeCompare(b.key))
+  const ordered = [...days.values()]
+    .filter(day => mode !== 'apple' || day.runs.length >= CATCHES_PER_DAY)
+    .sort((a, b) => a.key.localeCompare(b.key))
   const blocks = []
   while (ordered.length >= DAYS_PER_BLOCK) {
     const days = ordered.splice(0, DAYS_PER_BLOCK).map(day => ({
       ...day,
-      time: median(day.runs.map(run => run.ms))
+      time: mode === 'apple'
+        ? day.runs.reduce((sum, run) => sum + run.ms, 0) / day.runs.length
+        : median(day.runs.map(run => run.ms))
     }))
     const setups = [...new Map(days.flatMap(day => day.runs.map(run => [run.setup.signature, run.setup]))).values()]
     blocks.push({ days, setups, time: median(days.map(day => day.time)) })

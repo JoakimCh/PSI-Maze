@@ -5,6 +5,7 @@ export const PROCESSING_FLAGS = [
 ]
 export const DISCARD_CHOICES = [0, .5, .75, .9, .95]
 export const DEFAULT_DISCARD_FACTOR = .9
+const defaultRates = { maze: 24, apple: 10 }
 const storageKey = 'psi-maze-capture'
 const defaultProcessing = Object.freeze(Object.fromEntries(PROCESSING_FLAGS.map(([key]) => [key, false])))
 
@@ -18,7 +19,7 @@ export function discardLabel(factor) {
 }
 
 export function createCaptureSettings(section) {
-  const defaults = () => ({ processing: { ...defaultProcessing }, discardFactor: DEFAULT_DISCARD_FACTOR })
+  const defaults = () => ({ processing: { ...defaultProcessing }, discardFactor: DEFAULT_DISCARD_FACTOR, rates: { ...defaultRates } })
   let current = defaults()
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey))
@@ -27,10 +28,17 @@ export function createCaptureSettings(section) {
       if (typeof value === 'boolean' || value === null) current.processing[key] = value
     }
     if (DISCARD_CHOICES.includes(saved?.discardFactor)) current.discardFactor = saved.discardFactor
+    for (const mode of Object.keys(defaultRates)) {
+      const rate = saved?.rates?.[mode]
+      if (Number.isInteger(rate) && rate >= 1 && rate <= 30) current.rates[mode] = rate
+    }
   } catch {}
 
   const discard = section.querySelector('#advanced-discard')
   const status = section.querySelector('#advanced-status')
+  const rateControls = Object.keys(defaultRates).map(mode => [
+    mode, section.querySelector('#rate-' + mode), section.querySelector('#rate-' + mode + '-value')
+  ])
   const buttons = PROCESSING_FLAGS.map(([key, label]) => [key, label, section.querySelector('#advanced-' + key)])
 
   function render() {
@@ -40,6 +48,10 @@ export function createCaptureSettings(section) {
       button.textContent = label + ': ' + state
     }
     discard.textContent = discardLabel(current.discardFactor)
+    for (const [mode, input, output] of rateControls) {
+      input.value = current.rates[mode]
+      output.textContent = current.rates[mode] + ' words/s'
+    }
   }
 
   function save() {
@@ -68,10 +80,17 @@ export function createCaptureSettings(section) {
     current = defaults()
     save()
   }
+  for (const [mode, input] of rateControls) {
+    input.oninput = () => {
+      current.rates[mode] = input.valueAsNumber
+      save()
+    }
+  }
   render()
 
   return () => ({
     audio: audioConstraints(current.processing),
-    discardFactor: current.discardFactor
+    discardFactor: current.discardFactor,
+    rates: { ...current.rates }
   })
 }

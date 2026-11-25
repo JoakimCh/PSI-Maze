@@ -1,5 +1,5 @@
-export const COLUMNS = 18
-export const ROWS = 10
+export const COLUMNS = 15
+export const ROWS = 12
 export const DISTANCE = COLUMNS * ROWS - 1
 
 function neighbors(cell, columns, rows) {
@@ -76,8 +76,8 @@ function mazePath(columns, rows, side) {
 export function mazeForRun(completed, portrait = false) {
   const sides = ['top', 'right', 'bottom', 'left']
   const side = completed % sides.length
-  const columns = portrait ? 12 : COLUMNS
-  const rows = portrait ? 15 : ROWS
+  const columns = portrait ? ROWS : COLUMNS
+  const rows = portrait ? COLUMNS : ROWS
   return {
     path: mazePath(columns, rows, side),
     columns,

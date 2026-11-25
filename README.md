@@ -16,19 +16,19 @@ The game assigns one byte each to left, right, up, and down. Every set bit adds 
 
 ## Modes and training
 
-Both boards are wide on desktops, TVs, and tablets, and tall on phones.
+Both games use the same 15×12 playfield on desktops, TVs, and tablets, and 12×15 on phones. Press **Start** once to play continuously. **Stop**, switching tabs, or leaving the app ends the session.
 
-- **Maze** uses the directional signal that points along the corridor. The dot can stop and can only move forward. Each run gets a new 179-step layout, with a 12×15 grid on phones and an 18×10 grid on larger screens. The generator favors turns and shorter straightaways. Finishing a run advances the next entrance through the top, right, bottom and left sides, with the exit on the opposite edge.
-- **Apple Catch** uses both axes. The arena wraps at each edge. Red apples spawn at the same shortest distance from the yellow dot, and five catches complete a run.
+- **Maze** uses the directional signal that points along the corridor. The dot can stop and can only move forward. Each run gets a new 179-step layout, and the generator favors turns and shorter straightaways. Completed mazes are saved immediately. The next maze begins after a five-second countdown unless you cancel. Each completion moves the next entrance around the edges, with the exit opposite it.
+- **Apple Catch** uses both axes. The arena wraps at each edge. Red apples spawn at the same shortest distance from the yellow dot. Each catch saves its elapsed time and spawns the next apple immediately.
 - **Players** are local to the browser. Use the player button to add, rename or switch profiles.
-- **History** reveals a player's results for each mode after every seven local calendar days with a completed run. Days can be nonconsecutive. A block's typical time is the median of its seven daily medians. Runs later on the seventh day still count toward that block. Elapsed times stay hidden during play. History and CSV exports show only revealed runs.
+- **History** reveals results every seven qualifying local calendar days, which can be nonconsecutive. A Maze day needs one completed maze and uses the daily median. An Apple Catch day needs at least six catches across any number of sessions and uses the daily average. A block's typical time is the median of its seven daily results. Elapsed times stay hidden during play. History and CSV exports show only revealed runs.
 - On a TV, use the D-pad to move focus and Select to activate a control. On a keyboard, use arrow keys or Tab, Enter and Escape.
 
 ## TRNG diagnostics
 
 PSI Maze requests noise suppression, echo cancellation, and automatic gain control off in both game modes and in Diagnostics. The browser and device decide which settings they can apply. The extractor discards 90% of each shuffled sample block by default, using the remaining 10% to generate bits.
 
-Open **Advanced** to change the game settings saved on this device. Each processing control cycles between Off, On, and Browser default. **Restore defaults** sets all three to Off and sample discard to 90%.
+Open **Advanced** to change the game settings saved on this device. Each processing control cycles between Off, On, and Browser default. The sliders control how often the games use fresh words, with defaults of 24 words/s for Maze and 10 for Apple Catch. The generator still aims for 30 words/s. Each steering update uses the newest word from its interval and drops the extras. **Test settings** checks the source rate and delivery at both selected rates over ten seconds. If the source falls short during play, the session stops with an explanation. **Restore defaults** restores the two rates and 90% sample discard, with all three processing controls Off.
 
 Open **Diagnostics** and start a test in a quiet room. It starts with your Advanced settings. Switch to **Processing: browser defaults** for a comparison run. Check the browser-reported settings along with **32-bit words**, **Samples skipped by zero gate**, and **Tied sample pairs**. **Sample discard** changes how many samples the extractor considers during the test.
 

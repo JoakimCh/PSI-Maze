@@ -147,3 +147,31 @@ button[aria-pressed="true"] { border-color: var(--blue); color: var(--text); }
 .diagnostic-balance dd { margin: 0; font-variant-numeric: tabular-nums; }
 #diag-z { color: var(--yellow); font-weight: 700; }
 #diag-balance-chart { width: min(100%, 32rem); height: auto; margin: .4rem 0; }
+
+.board { position: relative; }
+#maze-countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(5 8 15 / 45%);
+}
+.countdown-card {
+  display: grid;
+  justify-items: center;
+  gap: .35rem;
+  padding: .6rem 1.35rem .85rem;
+  border: 1px solid var(--edge);
+  border-radius: .65rem;
+  background: var(--surface);
+  box-shadow: 0 .25rem 1rem rgb(0 0 0 / 40%);
+}
+.countdown-card h2 { font-size: 1.05rem; }
+#countdown-number { font-size: 2rem; font-variant-numeric: tabular-nums; color: var(--yellow); }
+#start[data-countdown] { visibility: hidden; }
+.rate-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .55rem; margin-block: .8rem; }
+.rate-settings label { display: block; padding: .55rem .75rem; border-radius: .5rem; background: var(--surface); }
+.rate-settings output { float: right; color: var(--muted); }
+.rate-settings input { display: block; width: 100%; min-height: 40px; accent-color: var(--yellow); }
+.rate-settings input:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+#advanced-test-result { margin-block: .6rem; }

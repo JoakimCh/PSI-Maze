@@ -1,10 +1,12 @@
+import { WordCadence, canDeliver } from './word-cadence.js'
+import { createRateTest } from './rate-test.js'
 import { createCaptureSettings } from './capture-settings.js'
 import { createDiagnostics } from './diagnostics.js'
 import { drawMaze, mazeForRun, moveInMaze } from './maze.js'
-import { APPLES_PER_RUN, drawAppleRun, moveTowardApple, newAppleRun } from './apple.js'
+import { drawAppleRun, moveTowardApple, newAppleRun } from './apple.js'
 import { direction } from './steering.js'
 import { MicrophoneTRNG } from './microphone.js'
-import { DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize, loadPlayers, savePlayer } from './history.js'
+import { CATCHES_PER_DAY, DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize, loadPlayers, savePlayer } from './history.js'
 
 const byId = id => document.getElementById(id)
 const canvas = byId('arena')
@@ -14,7 +16,10 @@ const start = byId('start')
 const navigation = ['maze', 'apple', 'history', 'diagnostics', 'advanced', 'players']
 const getCaptureSettings = createCaptureSettings(byId('advanced'))
 const diagnostics = createDiagnostics(byId('diagnostics'), getCaptureSettings)
-const gameModes = { maze: 'Maze', apple: 'Apple Catch', legacy: 'Earlier maze' }
+const gameModes = { maze: 'Maze', apple: 'Apple Catch' }
+const rateTest = createRateTest(byId('advanced'), getCaptureSettings)
+const countdown = byId('maze-countdown')
+const cancelCountdown = byId('cancel-countdown')
 const profileForm = byId('player-form')
 const playerName = byId('player-name')
 const playerStatus = byId('player-status')
@@ -23,7 +28,8 @@ const fullDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
 const timeOfDay = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' })
 const dateFromKey = key => new Date(key + 'T12:00:00')
 const seconds = ms => (ms / 1000).toFixed(1) + ' s'
-const signalTimeout = 6500
+const rateWindow = 5000
+const mazeBreak = 5000
 
 let page = 'maze'
 let gameMode = 'maze'
@@ -32,7 +38,6 @@ let player = { id: 'default', name: 'Player 1' }
 let players = [player]
 let runs = []
 let active
-let saving = false
 let initialized = false
 let editing
 let preview
@@ -65,18 +70,20 @@ function metric(label, value) {
 }
 
 function selectedRuns(mode) {
-  return runs.filter(run => (run.playerId ?? 'default') === player.id && (run.mode ?? 'legacy') === mode)
+  return runs.filter(run => run.playerId === player.id && run.mode === mode &&
+    (mode !== 'apple' || run.kind === 'catch'))
 }
 
 function showProgress(renderResults = true) {
-  const history = summarize(selectedRuns(historyMode))
+  const history = summarize(selectedRuns(historyMode), historyMode)
   const { blocks } = history
   const unavailable = 'Training history is unavailable on this device.'
-  byId('progress-label').textContent = storageError ? unavailable : progressText(summarize(selectedRuns(gameMode)))
-  byId('history-progress').textContent = storageError ? unavailable : historyMode === 'legacy'
-    ? 'Times from the original maze use the earlier movement rules.'
-    : progressText(history)
-  byId('history-legacy').hidden = !selectedRuns('legacy').length
+  const progress = summarize(selectedRuns(gameMode), gameMode)
+  const todayCatches = gameMode === 'apple' ? selectedRuns('apple').filter(run => run.day === dayKey(new Date())).length : 0
+  const dailyProgress = gameMode === 'apple' && todayCatches < CATCHES_PER_DAY
+    ? ' · ' + todayCatches + ' of ' + CATCHES_PER_DAY + ' catches today' : ''
+  byId('progress-label').textContent = storageError ? unavailable : progressText(progress) + dailyProgress
+  byId('history-progress').textContent = storageError ? unavailable : progressText(history)
   for (const mode of Object.keys(gameModes)) {
     byId('history-' + mode).setAttribute('aria-pressed', String(historyMode === mode))
   }
@@ -88,7 +95,8 @@ function renderHistory(blocks) {
   const results = byId('results')
   results.replaceChildren()
   if (!blocks.length) {
-    results.append(element('p', historyMode === 'legacy' ? 'No completed seven-day blocks from the earlier maze.' : 'Your first results unlock after seven training days.'))
+    const hint = historyMode === 'apple' ? ' Each day needs at least six catches.' : ''
+    results.append(element('p', 'Your first results unlock after seven training days.' + hint))
     return
   }
 
@@ -142,9 +150,11 @@ function renderHistory(blocks) {
       const dayGroup = element('details')
       const summary = element('summary')
       const title = element('span', undefined, 'day-title')
+      const unit = historyMode === 'apple' ? ' catches' : day.runs.length === 1 ? ' run' : ' runs'
+      const description = historyMode === 'apple' ? ' average' : ''
       title.append(
-        element('span', fullDate.format(dateFromKey(day.key)) + ' · ' + seconds(day.time)),
-        element('small', day.runs.length + (day.runs.length === 1 ? ' run' : ' runs'))
+        element('span', fullDate.format(dateFromKey(day.key)) + ' · ' + seconds(day.time) + description),
+        element('small', day.runs.length + unit)
       )
       summary.append(title)
       const list = element('ul', undefined, 'run-list')
@@ -176,7 +186,7 @@ async function refreshHistory() {
 }
 
 function appleCount(count) {
-  byId('apple-count').textContent = count + ' of ' + APPLES_PER_RUN + ' apples'
+  byId('apple-count').textContent = count + (count === 1 ? ' catch' : ' catches')
 }
 
 function newBoard() {
@@ -198,25 +208,31 @@ function release(run) {
   run.mic.stop()
   cancelAnimationFrame(run.frame)
   run.wake?.release().catch(() => {})
+  countdown.hidden = true
+  start.removeAttribute('data-countdown')
 }
 
-function ready(message = 'Press Start to enable the microphone.') {
+function ready(message = 'Press Start to enable the microphone.', showPreview = true) {
   status.textContent = message
   start.textContent = 'Start'
-  start.disabled = !initialized || saving
-  newBoard()
+  start.disabled = !initialized
+  if (showPreview) newBoard()
 }
 
 function stopRun(run, message) {
   if (active !== run) return
+  const moveFocus = countdown.contains(document.activeElement)
   release(run)
-  ready(message)
+  preview = undefined
+  ready(message, false)
+  if (moveFocus) start.focus({ preventScroll: true })
 }
 
 function setPage(selected) {
   if (page === selected && initialized) return
   if (active) release(active)
   if (page === 'diagnostics') diagnostics.stop()
+  if (page === 'advanced') rateTest.stop()
   page = selected
   for (const name of navigation) {
     const button = byId('nav-' + name)
@@ -252,111 +268,155 @@ function setPage(selected) {
   window.scrollTo(0, 0)
 }
 
-async function finish(run, at) {
-  release(run)
-  preview = undefined
-  saving = true
-  start.disabled = true
-  start.textContent = 'Next run'
-  status.textContent = 'Finished.'
+async function saveCompletion(run, at) {
   const date = new Date()
   try {
     await saveRun({
-      playerId: run.playerId, mode: run.mode, day: dayKey(date), at: date.getTime(),
-      localTime: timeOfDay.format(date), ms: at - run.started, setup: run.setup
+      playerId: run.playerId, mode: run.mode, kind: run.mode === 'apple' ? 'catch' : 'maze',
+      day: dayKey(date), at: date.getTime(), localTime: timeOfDay.format(date),
+      ms: at - run.started, setup: run.setup
     })
     await refreshHistory()
   } catch {
-    if (page === run.mode && player.id === run.playerId && status.textContent === 'Finished.') {
-      status.textContent = 'Finished. This run could not be saved.'
-    }
-  } finally {
-    saving = false
-    start.disabled = false
-    if (page === run.mode && player.id === run.playerId && document.activeElement === document.body) {
-      start.focus({ preventScroll: true })
-    }
+    if (active === run) stopRun(run, 'The result could not be saved. Check browser storage and try again.')
   }
+}
+
+function finishMaze(run, at, now) {
+  saveCompletion(run, at)
+  run.completedMazes++
+  run.restartAt = now + mazeBreak
+  byId('countdown-number').textContent = '5'
+  countdown.hidden = false
+  start.setAttribute('data-countdown', '')
+  cancelCountdown.focus({ preventScroll: true })
+  status.textContent = 'Maze completed.'
+}
+
+function newSessionMaze(run, now) {
+  const portrait = phoneLayout.matches
+  run.board = mazeForRun(run.completedMazes, portrait)
+  canvas.toggleAttribute('data-portrait', portrait)
+  run.position = 0
+  run.started = undefined
+  run.velocity = { x: 0, y: 0 }
+  run.target = { x: 0, y: 0 }
+  run.cadence = new WordCadence(run.rate, now)
+  run.nextCheck = now + rateWindow
+  delete run.restartAt
+  countdown.hidden = true
+  start.removeAttribute('data-countdown')
+  start.focus({ preventScroll: true })
+  drawMaze(canvas, run.board)
+  status.textContent = 'Listening for microphone input…'
 }
 
 function animate(run, now) {
   if (active !== run) return
-  const lastData = run.lastWord ?? run.listening
-  if (lastData !== undefined && now - lastData > signalTimeout) {
-    stopRun(run, 'No usable microphone signal. Check the mic and try again.')
+  run.frame = requestAnimationFrame(time => animate(run, time))
+  if (run.restartAt !== undefined) {
+    if (now >= run.restartAt) newSessionMaze(run, now)
+    else {
+      const number = byId('countdown-number')
+      const remaining = String(Math.ceil((run.restartAt - now) / 1000))
+      if (number.textContent !== remaining) number.textContent = remaining
+    }
     return
   }
+
+  if (now >= run.nextCheck) {
+    const report = run.cadence.report(now, rateWindow)
+    if (!canDeliver(report, run.rate)) {
+      const reason = report.wordsPerSecond < run.rate - .4
+        ? 'Microphone is supplying ' + report.wordsPerSecond.toFixed(1) + ' words/s.'
+        : 'Microphone words are arriving unevenly (' + Math.round(report.coverage * 100) + '% of updates supplied).'
+      stopRun(run, reason + ' ' + gameModes[run.mode] + ' is set to ' + run.rate +
+        ' words/s. Lower the rate or sample discard in Advanced.')
+      return
+    }
+    run.nextCheck = now + 1000
+  }
+
   if (run.started !== undefined) {
-    const time = Math.max(run.frameAt, Math.min(now, run.lastWord + 120))
-    const delta = Math.min(time - run.frameAt, 50)
+    const delta = Math.min(now - run.frameAt, 50)
     if (delta > 0) {
       const blend = 1 - Math.exp(-delta / 115)
       run.velocity.x += (run.target.x - run.velocity.x) * blend
       run.velocity.y += (run.target.y - run.velocity.y) * blend
-      let finishedIn
       if (run.mode === 'maze') {
         const moved = moveInMaze(run.board, run.position, run.velocity, delta)
         run.position = moved.position
-        finishedIn = moved.finishedIn
         drawMaze(canvas, run.board, run.position)
+        if (moved.finishedIn !== undefined) {
+          finishMaze(run, now - delta + moved.finishedIn, now)
+          return
+        }
       } else {
-        const oldCount = run.board.caught
-        finishedIn = moveTowardApple(run.board, run.velocity, delta)
+        const caughtIn = moveTowardApple(run.board, run.velocity, delta)
         drawAppleRun(canvas, run.board)
-        if (oldCount !== run.board.caught) appleCount(run.board.caught)
+        if (caughtIn !== undefined) {
+          const at = now - delta + caughtIn
+          saveCompletion(run, at)
+          run.started = at
+          appleCount(run.board.caught)
+        }
       }
-      if (finishedIn !== undefined) {
-        finish(run, time - delta + finishedIn)
-        return
-      }
-      run.frameAt = time
+      run.frameAt = now
     }
   }
-  run.frame = requestAnimationFrame(time => animate(run, time))
+
+  const sample = run.cadence.sample(now)
+  if (!sample) return
+  run.target = sample.word === undefined ? { x: 0, y: 0 } : direction(sample.word)
+  if (sample.word !== undefined && run.started === undefined) {
+    run.started = now
+    run.frameAt = now
+    status.textContent = 'Run in progress'
+    start.textContent = 'Stop'
+  }
 }
 
 function startRun() {
   if (active) {
-    stopRun(active, 'Run stopped. Press Start to try again.')
+    stopRun(active, 'Session stopped. Press Start to play again.')
     return
   }
-  if (!initialized || saving) return
-  launchRun()
+  if (initialized) launchRun()
+}
+
+cancelCountdown.onclick = () => {
+  if (active) stopRun(active, 'Session stopped. Press Start to play again.')
 }
 
 async function launchRun() {
   if (!preview || gameMode === 'apple') newBoard()
+  const settings = getCaptureSettings()
   const run = {
-    mic: new MicrophoneTRNG(), position: 0, velocity: { x: 0, y: 0 },
-    mode: gameMode, playerId: player.id, board: preview
+    mic: new MicrophoneTRNG(), position: 0, velocity: { x: 0, y: 0 }, target: { x: 0, y: 0 },
+    mode: gameMode, playerId: player.id, board: preview, rate: settings.rates[gameMode],
+    completedMazes: selectedRuns('maze').length
   }
   active = run
   start.textContent = 'Cancel'
   status.textContent = 'Waiting for microphone access…'
   try {
     await run.mic.start((word, setup) => {
-      if (active !== run) return
-      const now = performance.now()
-      if (run.lastWord !== undefined && now - run.lastWord > 350) {
-        run.frameAt = now
-        run.velocity.x = 0
-        run.velocity.y = 0
+      if (active !== run || !run.cadence || run.restartAt !== undefined) return
+      run.setup ??= setup
+      run.cadence.add(word, performance.now())
+    }, message => stopRun(run, message), {
+      ...settings,
+      onCapture() {
+        if (active !== run) return
+        const now = performance.now()
+        run.cadence = new WordCadence(run.rate, now)
+        run.nextCheck = now + rateWindow
+        start.textContent = 'Stop'
+        status.textContent = 'Listening for microphone input…'
+        run.frame = requestAnimationFrame(time => animate(run, time))
       }
-      run.lastWord = now
-      run.target = direction(word)
-      if (run.started !== undefined) return
-      run.started = now
-      run.frameAt = now
-      run.setup = run.mode === 'maze'
-        ? { ...setup, signature: setup.signature + '|fresh-layouts', rules: setup.rules + '-fresh-layouts' }
-        : setup
-      status.textContent = 'Run in progress'
-      start.textContent = 'Stop'
-    }, message => stopRun(run, message), getCaptureSettings())
+    })
     if (active !== run) return
-    run.listening = performance.now()
-    if (run.started === undefined) status.textContent = 'Listening for microphone input…'
-    run.frame = requestAnimationFrame(time => animate(run, time))
     navigator.wakeLock?.request('screen').then(lock => {
       if (active === run) run.wake = lock
       else lock.release().catch(() => {})
@@ -450,7 +510,7 @@ for (const name of Object.keys(gameModes)) {
 }
 start.onclick = startRun
 byId('export').onclick = () => {
-  const { blocks } = summarize(selectedRuns(historyMode))
+  const { blocks } = summarize(selectedRuns(historyMode), historyMode)
   if (!blocks.length) return
   const url = URL.createObjectURL(new Blob([historyCSV(blocks, gameModes[historyMode], player.name)], { type: 'text/csv;charset=utf-8' }))
   const link = element('a')
@@ -462,8 +522,10 @@ byId('export').onclick = () => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && active) stopRun(active, 'Run stopped when the app left the screen.')
-  if (document.hidden) diagnostics.stop('Test stopped when the app left the screen.')
-  else refreshHistory()
+  if (document.hidden) {
+    diagnostics.stop('Test stopped when the app left the screen.')
+    rateTest.stop('Test stopped when the app left the screen.')
+  } else refreshHistory()
 })
 setInterval(() => {
   const today = dayKey(new Date())
@@ -478,7 +540,9 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape' || event.key === 'GoBack' || event.key === 'BrowserBack') {
     if (page === 'diagnostics' && diagnostics.stop()) {
       byId('diag-start').focus()
-    } else if (active) stopRun(active, 'Run stopped. Press Start to try again.')
+    } else if (page === 'advanced' && rateTest.stop()) {
+      byId('advanced-test').focus()
+    } else if (active) stopRun(active, 'Session stopped. Press Start to play again.')
     else if (page === 'players' && !profileForm.hidden) {
       byId('cancel-player-form').click()
     } else if (page !== 'maze') {
@@ -492,7 +556,7 @@ document.addEventListener('keydown', event => {
   const direction = ['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].indexOf(event.key)
   if (direction === -1) return
   const focused = document.activeElement
-  if (focused === playerName && direction % 2 === 0) return
+  if ((focused === playerName || focused?.type === 'range') && direction % 2 === 0) return
   const candidates = [...document.querySelectorAll('button:not(:disabled), summary, input')].filter(el => el.getClientRects().length)
   if (!candidates.includes(focused)) {
     (byId('game').hidden || start.disabled ? byId('nav-' + page) : start).focus()
