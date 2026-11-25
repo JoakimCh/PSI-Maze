@@ -13,7 +13,7 @@ const canvas = byId('arena')
 const phoneLayout = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 550px)')
 const status = byId('status')
 const start = byId('start')
-const navigation = ['maze', 'apple', 'history', 'diagnostics', 'advanced', 'players']
+const navigation = ['maze', 'apple', 'history', 'diagnostics', 'advanced', 'about', 'players']
 const { getSettings: getCaptureSettings, setSampleRate } = createCaptureSettings(byId('advanced'))
 const diagnostics = createDiagnostics(byId('diagnostics'), getCaptureSettings, setSampleRate)
 const gameModes = { maze: 'Maze', apple: 'Apple Catch' }
@@ -243,6 +243,7 @@ function setPage(selected) {
   byId('players').hidden = selected !== 'players'
   byId('diagnostics').hidden = selected !== 'diagnostics'
   byId('advanced').hidden = selected !== 'advanced'
+  byId('about').hidden = selected !== 'about'
   if (selected === 'diagnostics') diagnostics.prepare()
   if (isGame) {
     gameMode = selected
@@ -568,7 +569,7 @@ document.addEventListener('keydown', event => {
   if (direction === -1) return
   const focused = document.activeElement
   if ((focused === playerName || focused?.type === 'range') && direction % 2 === 0) return
-  const candidates = [...document.querySelectorAll('button:not(:disabled), summary, input')].filter(el => el.getClientRects().length)
+  const candidates = [...document.querySelectorAll('button:not(:disabled), summary, input, #about a')].filter(el => el.getClientRects().length)
   if (!candidates.includes(focused)) {
     (byId('game').hidden || start.disabled ? byId('nav-' + page) : start).focus()
     event.preventDefault()

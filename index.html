@@ -22,6 +22,7 @@
         <button id="nav-history">History</button>
         <button id="nav-diagnostics">Diagnostics</button>
         <button id="nav-advanced">Advanced</button>
+        <button id="nav-about">About</button>
         <button id="nav-players" aria-label="Switch player">Player 1</button>
       </nav>
       <button id="install" hidden>Install</button>
@@ -151,6 +152,19 @@
         </div>
         <p id="advanced-test-result" role="status"></p>
         <p id="advanced-status" role="status">These settings apply when you start a game. Diagnostics lets you compare settings without saving changes.</p>
+      </section>
+      <section id="about" class="about-copy" aria-labelledby="about-title" hidden>
+        <h1 id="about-title">About PSI Maze</h1>
+        <p>PSI Maze starts from the idea that <strong>mind over matter is possible</strong>. It gives you a way to practice moving a marker with your intention, one direction at a time, then put that practice to use in free movement.</p>
+        <ul>
+          <li><strong>Maze</strong> is the training exercise. The corridor gives you one direction to focus on at a time. Move the yellow square along each stretch, then shift your focus when it lines up with the next turn. The maze is designed to help you develop and strengthen your directional control.</li>
+          <li><strong>Apple Catch</strong> is where you put that practice to use. Focus on guiding the yellow dot toward the red apple. The dot can move freely and wraps around the edges. Every catch brings a new target.</li>
+        </ul>
+        <h2>What is a TRNG?</h2>
+        <p>A <strong>pseudorandom number generator (PRNG)</strong> produces a sequence from a starting state. Start it from the same state, and you get the same sequence. A <strong>true random number generator (TRNG)</strong> draws its randomness from a live physical source. In PSI Maze, that source is the tiny fluctuations in your microphone signal.</p>
+        <p>PSI Maze shuffles small blocks of microphone samples and compares their lowest bits in pairs. Equal pairs are skipped. Each 32-bit word gives eight bits to each direction. Every <code>1</code> adds one board pixel of movement, and opposing directions cancel. The extractor grew out of the <a href="https://joakimch.github.io/TRNG-Mind-Over-Matter-Experiments/ufo/">UFO experiment</a>.</p>
+        <h2>Training and feedback</h2>
+        <p>The marker’s movement gives you immediate feedback. <strong>History</strong> reveals your times after seven training days, so you can focus on practicing and see how your performance changes. The experiment’s central question is whether your intended direction shows up more often than chance would predict.</p>
       </section>
       <section id="players" aria-labelledby="players-title" hidden>
         <div class="history-heading">

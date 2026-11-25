@@ -182,3 +182,10 @@ button[aria-pressed="true"] { border-color: var(--blue); color: var(--text); }
 #advanced-countdown { max-width: 34rem; margin-top: .6rem; }
 #advanced-test-seconds { color: var(--yellow); font-variant-numeric: tabular-nums; }
 #advanced-test-progress { display: block; width: 100%; accent-color: var(--yellow); }
+
+.about-copy { max-width: 42em; padding-block: .55rem; }
+.about-copy h2 { font-size: 1.2rem; margin-top: 1.1rem; }
+.about-copy p, .about-copy li + li { margin-top: .55rem; }
+.about-copy ul { padding-inline-start: 1.25em; }
+.about-copy a { color: var(--blue); }
+.about-copy a:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
