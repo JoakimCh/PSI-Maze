@@ -2,64 +2,76 @@ export const COLUMNS = 18
 export const ROWS = 10
 export const DISTANCE = COLUMNS * ROWS - 1
 
-function onEdge(cell) {
-  const x = cell % COLUMNS
-  return x === 0 || x === COLUMNS - 1 || cell < COLUMNS || cell >= COLUMNS * (ROWS - 1)
-}
-
-function neighbors(cell) {
-  const x = cell % COLUMNS
+function neighbors(cell, columns, rows) {
+  const x = cell % columns
   return [
     x > 0 ? cell - 1 : -1,
-    x < COLUMNS - 1 ? cell + 1 : -1,
-    cell >= COLUMNS ? cell - COLUMNS : -1,
-    cell < COLUMNS * (ROWS - 1) ? cell + COLUMNS : -1
+    x < columns - 1 ? cell + 1 : -1,
+    cell >= columns ? cell - columns : -1,
+    cell < columns * (rows - 1) ? cell + columns : -1
   ].filter(candidate => candidate >= 0)
 }
 
-export function generateMaze(random = Math.random) {
-  // Rewire one endpoint at a time. Reversing that portion of the path
-  // preserves every grid cell, every connection being one cell long.
-  let path = Array.from({ length: DISTANCE + 1 }, (_, i) =>
-    Math.floor(i / COLUMNS) % 2 === 0 ? i : i + COLUMNS - 1 - 2 * (i % COLUMNS))
+function mazePath(columns, rows, side) {
+  const edges = [
+    cell => Math.floor(cell / columns),
+    cell => columns - 1 - cell % columns,
+    cell => rows - 1 - Math.floor(cell / columns),
+    cell => cell % columns
+  ]
+  const startDistance = edges[side]
+  const endDistance = edges[(side + 2) % 4]
+
+  // Seed with a valid winding path, then rewire its endpoints without
+  // changing the grid dimensions or the number of steps.
+  const acrossRows = side % 2 === 0
+  const span = acrossRows ? columns : rows
+  let path = Array.from({ length: columns * rows }, (_, i) => {
+    const lane = Math.floor(i / span)
+    const offset = lane % 2 === 0 ? i % span : span - 1 - i % span
+    return acrossRows ? lane * columns + offset : offset * columns + lane
+  })
+  if (startDistance(path[0]) !== 0) path.reverse()
+
   let best = path
   let bestTurns = 0
-  for (let step = 0; step < 1200; step++) {
-    const fromStart = random() < 0.5
+  for (let step = 0; step < 6500; step++) {
+    const fromStart = Math.random() < 0.5
     const end = fromStart ? path[0] : path.at(-1)
     const next = fromStart ? path[1] : path.at(-2)
-    const choices = neighbors(end).filter(cell => cell !== next)
-    const pivot = path.indexOf(choices[Math.floor(random() * choices.length)])
+    const choices = neighbors(end, columns, rows).filter(cell => cell !== next)
+    const pivot = path.indexOf(choices[Math.floor(Math.random() * choices.length)])
+    const edgeDistance = fromStart ? startDistance : endDistance
+    const newEndpoint = path[fromStart ? pivot - 1 : pivot + 1]
+    // Favor moves near the requested edges while still exploring the interior.
+    if (edgeDistance(newEndpoint) > edgeDistance(end) && Math.random() < .8) continue
     path = fromStart
       ? path.slice(0, pivot).reverse().concat(path.slice(pivot))
       : path.slice(0, pivot + 1).concat(path.slice(pivot + 1).reverse())
-    if (step < 350 || !onEdge(path[0]) || !onEdge(path.at(-1))) continue
+    if (step < 350 || startDistance(path[0]) !== 0 || endDistance(path.at(-1)) !== 0) continue
     const turns = path.slice(2).reduce((count, cell, i) =>
       count + Number(cell - path[i + 1] !== path[i + 1] - path[i]), 0)
     if (turns > bestTurns) {
       best = path
       bestTurns = turns
+      if (bestTurns >= 74) break
     }
   }
   return best
 }
 
-export function mazeForRun(completed) {
-  const rotation = completed % 4
-  let columns = COLUMNS
-  let rows = ROWS
-  let path = generateMaze()
-  const first = path[0]
-  const toTop = first < COLUMNS ? 0
-    : first % COLUMNS === COLUMNS - 1 ? 3
-      : first >= COLUMNS * (ROWS - 1) ? 2 : 1
-  for (let turn = 0; turn < (toTop + rotation) % 4; turn++) {
-    path = path.map(index => (index % columns) * rows + rows - 1 - Math.floor(index / columns))
-    const previousColumns = columns
-    columns = rows
-    rows = previousColumns
+export function mazeForRun(completed, portrait = false) {
+  const sides = ['top', 'right', 'bottom', 'left']
+  const side = completed % sides.length
+  const columns = portrait ? ROWS : COLUMNS
+  const rows = portrait ? COLUMNS : ROWS
+  return {
+    path: mazePath(columns, rows, side),
+    columns,
+    rows,
+    side: sides[side],
+    endSide: sides[(side + 2) % sides.length]
   }
-  return { path, columns, rows, side: ['top', 'right', 'bottom', 'left'][rotation] }
 }
 
 export function moveInMaze(maze, position, velocity, milliseconds) {
@@ -86,14 +98,11 @@ const pad = 14
 const backgrounds = new WeakMap()
 
 function drawBackground(canvas, maze) {
-  const { path, columns, rows, side } = maze
+  const { path, columns, side, endSide } = maze
   const ctx = canvas.getContext('2d')
   const x = index => pad + index % columns * cell
   const y = index => pad + Math.floor(index / columns) * cell
   const end = path.at(-1)
-  const endSide = end % columns === 0 ? 'left'
-    : end % columns === columns - 1 ? 'right'
-      : end < columns ? 'top' : 'bottom'
   const gaps = new Map([[path[0], side], [end, endSide]])
   const openings = new Set()
   for (let i = 1; i < path.length; i++) {

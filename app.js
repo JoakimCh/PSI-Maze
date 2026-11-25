@@ -6,6 +6,7 @@ import { DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize, loadP
 
 const byId = id => document.getElementById(id)
 const canvas = byId('arena')
+const phoneLayout = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 550px)')
 const status = byId('status')
 const start = byId('start')
 const navigation = ['maze', 'apple', 'history', 'players']
@@ -175,11 +176,13 @@ function appleCount(count) {
 }
 
 function newBoard() {
+  const portrait = phoneLayout.matches
+  canvas.toggleAttribute('data-portrait', portrait)
   if (gameMode === 'maze') {
-    preview = mazeForRun(selectedRuns('maze').length)
+    preview = mazeForRun(selectedRuns('maze').length, portrait)
     drawMaze(canvas, preview)
   } else {
-    preview = newAppleRun()
+    preview = newAppleRun(portrait)
     drawAppleRun(canvas, preview)
     appleCount(0)
   }
@@ -545,5 +548,8 @@ async function initialize() {
   if (!byId('game').hidden) ready()
   if (page === 'players') renderPlayers()
 }
+phoneLayout.addEventListener('change', () => {
+  if (page === gameMode && preview && !active) newBoard()
+})
 setPage('maze')
 initialize()

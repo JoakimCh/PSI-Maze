@@ -40,6 +40,7 @@ canvas {
   max-width: 100%;
   object-fit: contain;
 }
+canvas[data-portrait] { height: min(64svh, 34rem); }
 .game-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .38rem .65rem; margin-top: .55rem; }
 #status { margin-right: auto; }
 .history-heading { margin-bottom: .5rem; }
