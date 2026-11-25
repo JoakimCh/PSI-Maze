@@ -1,11 +1,13 @@
-const weights = Float32Array.from({ length: 256 }, (_, byte) => {
+export function countSetBits(word) {
   let count = 0
-  while (byte) {
-    byte &= byte - 1
+  while (word) {
+    word = (word & (word - 1)) >>> 0
     count++
   }
-  return count / 2
-})
+  return count
+}
+
+const weights = Float32Array.from({ length: 256 }, (_, byte) => countSetBits(byte) / 2)
 
 export function direction(word) {
   return {

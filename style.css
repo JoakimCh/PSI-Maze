@@ -111,3 +111,17 @@ button[aria-pressed="true"] { border-color: var(--blue); color: var(--text); }
 .diagnostic-grid dl { display: grid; grid-template-columns: 1fr auto; gap: .2rem .55rem; margin: .45rem 0 0; }
 .diagnostic-grid dt { color: var(--muted); }
 .diagnostic-grid dd { margin: 0; max-width: 12rem; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+.diagnostic-balance {
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: .55rem;
+  padding: .6rem .7rem;
+  margin-block: .7rem;
+}
+.diagnostic-balance h2 { font-size: 1.1rem; }
+.diagnostic-balance dl { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; margin: .45rem 0; }
+.diagnostic-balance dt { color: var(--muted); }
+.diagnostic-balance dd { margin: 0; font-variant-numeric: tabular-nums; }
+#diag-z { color: var(--yellow); font-weight: 700; }
+#diag-balance-chart { width: min(100%, 32rem); height: auto; margin: .4rem 0; }

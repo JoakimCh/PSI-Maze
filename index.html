@@ -61,6 +61,17 @@
           <button id="diag-start" class="primary">Start test</button>
         </div>
         <p id="diag-status" role="status">Start a test to inspect live microphone input.</p>
+        <section class="diagnostic-balance" aria-labelledby="diag-balance-title">
+          <h2 id="diag-balance-title">Live bit balance</h2>
+          <dl>
+            <div><dt>Z-score</dt><dd id="diag-z" data-diagnostic>—</dd></div>
+            <div><dt>Ones / bits</dt><dd id="diag-ones" data-diagnostic>—</dd></div>
+            <div><dt>Expected</dt><dd id="diag-expected" data-diagnostic>—</dd></div>
+            <div><dt>Standard deviation (σ)</dt><dd id="diag-sigma" data-diagnostic>—</dd></div>
+          </dl>
+          <canvas id="diag-balance-chart" width="600" height="150" aria-hidden="true"></canvas>
+          <p class="diagnostic-note">Positive means more ones. Negative means more zeros. The reference assumes independent bits with a 50% chance of a one.</p>
+        </section>
         <div class="diagnostic-grid">
           <section aria-labelledby="diag-generator-title">
             <h2 id="diag-generator-title">Generator</h2>

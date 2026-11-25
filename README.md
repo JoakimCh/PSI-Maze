@@ -28,6 +28,8 @@ Both boards are wide on desktops, TVs, and tablets, and tall on phones.
 
 Open **Diagnostics** and start a test in a quiet room. Compare **32-bit words**, **Samples skipped by zero gate**, and **Tied sample pairs**. Run the same test with **Processing: request off** and compare the browser-reported settings and generation rate. The browser and device decide which processing controls are available. **Sample discard** changes how many samples the extractor considers during the test.
 
+**Live bit balance** follows the Z-score display from [The Guess Experiment](https://github.com/JoakimCh/the-guess-experiment/blob/main/stats.js). It counts ones in every complete TRNG word since the test started. For a fair, independent stream of `n` bits, the expected count is `n / 2` and its standard deviation is `sqrt(n) / 2`. The marker shows how far the observed count is from the expected count in standard deviations. Positive values show more ones and negative values show more zeros.
+
 ## Run or host it
 
 Serve this directory over HTTPS or localhost, for example with `python3 -m http.server 8000`. Open the page, press **Start** and allow microphone access. Android TV needs a browser with microphone access and AudioWorklet support. Installation is available through compatible browsers. Once cached, the app works offline. Audio is processed on-device.
