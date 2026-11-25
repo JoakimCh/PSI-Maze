@@ -318,7 +318,7 @@ function applyWord(run, update, now) {
   }
 
   const signal = direction(update.word)
-  const pixels = { x: signal.x * run.multiplier, y: signal.y * run.multiplier }
+  const pixels = run.halfMovement ? { x: signal.x / 2, y: signal.y / 2 } : signal
   if (run.mode === 'maze') {
     const from = run.position
     run.position = moveInMaze(run.board, from, pixels)
@@ -402,8 +402,8 @@ async function launchRun() {
   if (!preview || gameMode === 'apple') newBoard()
   const settings = getCaptureSettings()
   const run = {
-    mic: new MicrophoneTRNG(), position: 0, multiplier: settings.multiplier,
-    mode: gameMode, playerId: player.id, board: preview, rate: settings.rates[gameMode],
+    mic: new MicrophoneTRNG(), position: 0, halfMovement: settings.halfMovement,
+    mode: gameMode, playerId: player.id, board: preview, rate: settings.wordRate,
     completedMazes: selectedRuns('maze').length
   }
   active = run
@@ -413,7 +413,7 @@ async function launchRun() {
     await run.mic.start((word, setup) => {
       if (active !== run || !run.cadence || run.restartAt !== undefined) return
       if (!run.setup) {
-        const rules = 'pixel-steps-' + run.rate + 'hz-' + run.multiplier + 'x'
+        const rules = 'bit-steps-' + run.rate + 'hz-' + (run.halfMovement ? 'half' : 'full')
         run.setup = { ...setup, rules, signature: setup.signature + '|' + rules }
       }
       run.cadence.add(word, performance.now())

@@ -7,7 +7,7 @@ export function countSetBits(word) {
   return count
 }
 
-const weights = Float32Array.from({ length: 256 }, (_, byte) => countSetBits(byte) / 2)
+const weights = Uint8Array.from({ length: 256 }, (_, byte) => countSetBits(byte))
 
 export function direction(word) {
   return {

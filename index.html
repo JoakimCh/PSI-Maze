@@ -135,19 +135,20 @@
         <section aria-labelledby="steering-settings-title">
           <h2 id="steering-settings-title">Game steering</h2>
           <div class="rate-settings">
-            <label for="rate-maze">Maze <output id="rate-maze-value">24 words/s</output>
-              <input id="rate-maze" type="range" min="1" max="85" step="1" value="24">
+            <label for="word-rate">Words per second <output id="word-rate-value">24 words/s</output>
+              <input id="word-rate" type="range" min="1" max="85" step="1" value="24">
             </label>
-            <label for="rate-apple">Apple Catch <output id="rate-apple-value">10 words/s</output>
-              <input id="rate-apple" type="range" min="1" max="85" step="1" value="10">
-            </label>
-            <label for="movement-multiplier">Movement multiplier <output id="movement-multiplier-value">1×</output>
-              <input id="movement-multiplier" type="range" min="0.5" max="12" step="0.5" value="1">
-            </label>
+            <div class="diagnostic-controls">
+              <button id="half-movement" class="secondary" aria-pressed="false">Half movement: Off</button>
+            </div>
           </div>
         </section>
         <button id="advanced-reset" class="secondary">Restore defaults</button>
         <button id="advanced-test" class="primary">Test settings</button>
+        <div id="advanced-countdown" hidden>
+          <label for="advanced-test-progress">Test time remaining <span id="advanced-test-seconds"></span></label>
+          <progress id="advanced-test-progress" max="10000" value="10000"></progress>
+        </div>
         <p id="advanced-test-result" role="status"></p>
         <p id="advanced-status" role="status">These settings apply when you start a game. Diagnostics lets you compare settings without saving changes.</p>
       </section>

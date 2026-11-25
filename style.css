@@ -178,3 +178,7 @@ button[aria-pressed="true"] { border-color: var(--blue); color: var(--text); }
 
 #advanced section { margin-block: 1rem; }
 #advanced section h2 { font-size: 1.1rem; }
+
+#advanced-countdown { max-width: 34rem; margin-top: .6rem; }
+#advanced-test-seconds { color: var(--yellow); font-variant-numeric: tabular-nums; }
+#advanced-test-progress { display: block; width: 100%; accent-color: var(--yellow); }
