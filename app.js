@@ -1,4 +1,4 @@
-import { WordCadence, canDeliver } from './word-cadence.js'
+import { CAPTURE_BATCH_MS, WordCadence, canDeliver } from './word-cadence.js'
 import { createRateTest } from './rate-test.js'
 import { createCaptureSettings } from './capture-settings.js'
 import { createDiagnostics } from './diagnostics.js'
@@ -302,13 +302,41 @@ function newSessionMaze(run, now) {
   run.velocity = { x: 0, y: 0 }
   run.target = { x: 0, y: 0 }
   run.cadence = new WordCadence(run.rate, now)
-  run.nextCheck = now + rateWindow
+  run.nextCheck = now + rateWindow + CAPTURE_BATCH_MS
   delete run.restartAt
   countdown.hidden = true
   start.removeAttribute('data-countdown')
   start.focus({ preventScroll: true })
   drawMaze(canvas, run.board)
   status.textContent = 'Listening for microphone input…'
+}
+
+function advanceMotion(run, until, now) {
+  while (run.started !== undefined && run.frameAt < until) {
+    const delta = Math.min(until - run.frameAt, 50)
+    const blend = 1 - Math.exp(-delta / 115)
+    run.velocity.x += (run.target.x - run.velocity.x) * blend
+    run.velocity.y += (run.target.y - run.velocity.y) * blend
+    if (run.mode === 'maze') {
+      const moved = moveInMaze(run.board, run.position, run.velocity, delta)
+      run.position = moved.position
+      if (moved.finishedIn !== undefined) {
+        drawMaze(canvas, run.board, run.position)
+        finishMaze(run, run.frameAt + moved.finishedIn, now)
+        return false
+      }
+    } else {
+      const caughtIn = moveTowardApple(run.board, run.velocity, delta)
+      if (caughtIn !== undefined) {
+        const at = run.frameAt + caughtIn
+        saveCompletion(run, at)
+        run.started = at
+        appleCount(run.board.caught)
+      }
+    }
+    run.frameAt += delta
+  }
+  return true
 }
 
 function animate(run, now) {
@@ -337,43 +365,20 @@ function animate(run, now) {
     run.nextCheck = now + 1000
   }
 
-  if (run.started !== undefined) {
-    const delta = Math.min(now - run.frameAt, 50)
-    if (delta > 0) {
-      const blend = 1 - Math.exp(-delta / 115)
-      run.velocity.x += (run.target.x - run.velocity.x) * blend
-      run.velocity.y += (run.target.y - run.velocity.y) * blend
-      if (run.mode === 'maze') {
-        const moved = moveInMaze(run.board, run.position, run.velocity, delta)
-        run.position = moved.position
-        drawMaze(canvas, run.board, run.position)
-        if (moved.finishedIn !== undefined) {
-          finishMaze(run, now - delta + moved.finishedIn, now)
-          return
-        }
-      } else {
-        const caughtIn = moveTowardApple(run.board, run.velocity, delta)
-        drawAppleRun(canvas, run.board)
-        if (caughtIn !== undefined) {
-          const at = now - delta + caughtIn
-          saveCompletion(run, at)
-          run.started = at
-          appleCount(run.board.caught)
-        }
-      }
-      run.frameAt = now
+  for (const update of run.cadence.take(now)) {
+    if (!advanceMotion(run, update.at, now)) return
+    run.target = update.word === undefined ? { x: 0, y: 0 } : direction(update.word)
+    if (update.word !== undefined && run.started === undefined) {
+      run.started = update.at
+      run.frameAt = update.at
+      status.textContent = 'Run in progress'
+      start.textContent = 'Stop'
     }
   }
 
-  const sample = run.cadence.sample(now)
-  if (!sample) return
-  run.target = sample.word === undefined ? { x: 0, y: 0 } : direction(sample.word)
-  if (sample.word !== undefined && run.started === undefined) {
-    run.started = now
-    run.frameAt = now
-    status.textContent = 'Run in progress'
-    start.textContent = 'Stop'
-  }
+  if (run.started === undefined || !advanceMotion(run, now, now)) return
+  if (run.mode === 'maze') drawMaze(canvas, run.board, run.position)
+  else drawAppleRun(canvas, run.board)
 }
 
 function startRun() {
@@ -410,7 +415,7 @@ async function launchRun() {
         if (active !== run) return
         const now = performance.now()
         run.cadence = new WordCadence(run.rate, now)
-        run.nextCheck = now + rateWindow
+        run.nextCheck = now + rateWindow + CAPTURE_BATCH_MS
         start.textContent = 'Stop'
         status.textContent = 'Listening for microphone input…'
         run.frame = requestAnimationFrame(time => animate(run, time))

@@ -1,51 +1,86 @@
-// A slot can consume the newest word received during it, once.
+export const CAPTURE_BATCH_MS = 200
+const batchesPerSecond = 1000 / CAPTURE_BATCH_MS
+
 export class WordCadence {
-  #slots = new Map()
-  #sampled = -1
+  #batch = 0
+  #captured = []
+  #spare = []
+  #source = 0
+  #pending = []
+  #completed = []
 
   constructor(rate, started) {
-    this.period = 1000 / rate
+    this.rate = rate
     this.started = started
   }
 
-  #slot(at) {
-    return Math.floor((at - this.started) / this.period)
+  #quota(batch) {
+    return Math.floor((batch + 1) * this.rate / batchesPerSecond) -
+      Math.floor(batch * this.rate / batchesPerSecond)
+  }
+
+  #closeBefore(at) {
+    const end = Math.floor((at - this.started) / CAPTURE_BATCH_MS)
+    while (this.#batch < end) {
+      const batch = this.#batch
+      const quota = this.#quota(batch)
+      const words = this.#captured.slice(0, quota)
+      const shortage = quota - words.length
+      if (shortage) words.unshift(...this.#spare.slice(-shortage))
+
+      // Play this batch while the next one is captured.
+      const boundary = this.started + (batch + 1) * CAPTURE_BATCH_MS
+      for (let i = 0; i < quota; i++) {
+        this.#pending.push({ at: boundary + i * CAPTURE_BATCH_MS / quota, word: words[i] })
+      }
+      this.#completed.push({ boundary, source: this.#source, supplied: words.length, quota })
+      this.#spare = this.#captured.slice(quota)
+      this.#captured = []
+      this.#source = 0
+      this.#batch++
+    }
+    const oldest = this.started + this.#batch * CAPTURE_BATCH_MS - 12000
+    while (this.#completed[0]?.boundary <= oldest) this.#completed.shift()
+    while (this.#pending[0]?.at < oldest) this.#pending.shift()
   }
 
   add(word, at) {
-    const slot = this.#slot(at)
-    const previous = this.#slots.get(slot)
-    this.#slots.set(slot, { word, count: (previous?.count ?? 0) + 1 })
-    const expired = this.#slot(at - 12000)
-    for (const key of this.#slots.keys()) {
-      if (key >= expired) break
-      this.#slots.delete(key)
-    }
+    this.#closeBefore(at)
+    const quota = this.#quota(this.#batch)
+    const capacity = quota + Math.ceil(this.rate / batchesPerSecond)
+    // Keep the first quota in arrival order, plus the newest spare words.
+    if (this.#captured.length === capacity) this.#captured.splice(quota, 1)
+    this.#captured.push(word)
+    this.#source++
   }
 
-  sample(at) {
-    const slot = this.#slot(at) - 1
-    if (slot <= this.#sampled) return
-    this.#sampled = slot
-    return { word: this.#slots.get(slot)?.word }
+  take(at) {
+    this.#closeBefore(at)
+    const next = this.#pending.findIndex(update => update.at > at)
+    return this.#pending.splice(0, next < 0 ? this.#pending.length : next)
   }
 
   report(at, milliseconds) {
-    const end = this.#slot(at)
-    const first = Math.max(0, end - Math.round(milliseconds / this.period))
+    this.#closeBefore(at)
+    const sourceEnd = this.started + this.#batch * CAPTURE_BATCH_MS
+    const deliveryEnd = sourceEnd - CAPTURE_BATCH_MS
     let source = 0
-    let filled = 0
-    for (let i = first; i < end; i++) {
-      const slot = this.#slots.get(i)
-      if (slot) {
-        source += slot.count
-        filled++
+    let captureBatches = 0
+    let supplied = 0
+    let quota = 0
+    for (const batch of this.#completed) {
+      if (batch.boundary > sourceEnd - milliseconds) {
+        source += batch.source
+        captureBatches++
+      }
+      if (batch.boundary <= deliveryEnd && batch.boundary > deliveryEnd - milliseconds) {
+        supplied += batch.supplied
+        quota += batch.quota
       }
     }
-    const size = end - first
     return {
-      wordsPerSecond: size ? source * 1000 / (size * this.period) : 0,
-      coverage: size ? filled / size : 0
+      wordsPerSecond: captureBatches ? source * batchesPerSecond / captureBatches : 0,
+      coverage: quota ? supplied / quota : 0
     }
   }
 }

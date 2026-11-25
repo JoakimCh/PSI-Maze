@@ -1,5 +1,5 @@
 import { MicrophoneTRNG } from './microphone.js'
-import { WordCadence, canDeliver } from './word-cadence.js'
+import { CAPTURE_BATCH_MS, WordCadence, canDeliver } from './word-cadence.js'
 
 const testDuration = 10000
 
@@ -56,7 +56,7 @@ export function createRateTest(section, getCaptureSettings) {
                 Math.round(report.coverage * 100) + '% of slots supplied).'
             })
             stop('Source: ' + source + ' words/s. ' + scores.join(' '))
-          }, testDuration + 100)
+          }, testDuration + CAPTURE_BATCH_MS)
         }
       })
     } catch (error) {
