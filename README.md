@@ -1,12 +1,12 @@
 # PSI Maze
 
-An installable game for exploring mind over matter. Microphone-derived bits steer a yellow dot while you focus on where you want it to go. [Play PSI Maze](https://joakimch.github.io/PSI-Maze/).
+An installable game for exploring mind over matter. Microphone-derived bits steer a yellow marker while you focus on where you want it to go. [Play PSI Maze](https://joakimch.github.io/PSI-Maze/).
 
 ## Play
 
 Press **Start** and allow microphone access. A session continues until you press **Stop**, switch tabs, or leave the app. Completed mazes and catches are saved.
 
-- **Maze.** Focus along the corridor. The dot can only move forward. Each maze is 179 steps, and the entrance cycles through all four sides. After finishing, a five-second countdown starts the next maze. Press **Cancel** to end the session.
+- **Maze.** Focus along the corridor. The yellow square fits snugly between the walls and can only move forward. Each maze is 179 steps, and the entrance cycles through all four sides. After finishing, a five-second countdown starts the next maze. Press **Cancel** to end the session.
 - **Apple Catch.** Focus toward the red dot. Every catch spawns another apple at the same distance. The board wraps at the edges.
 - **Controls.** Use the D-pad and Select on a TV, or the arrow keys, Tab, Enter, and Escape on a keyboard. Both games use the same board, wide on larger screens and tall on phones.
 
@@ -14,7 +14,7 @@ Press **Start** and allow microphone access. A session continues until you press
 
 Profiles and results are stored in your browser. Times stay hidden during play and unlock every seven qualifying training days. The days can be nonconsecutive.
 
-A **Maze** day needs one completed maze and uses the median time. An **Apple Catch** day needs six catches across any number of sessions and uses the average catch time. Each seven-day block reports the median of its daily results. **History** offers CSV export for revealed runs.
+A **Maze** day needs one completed maze and uses the median time. An **Apple Catch** day needs one catch and uses the average time of all catches that day. Each seven-day block reports the median of its daily results. **History** offers CSV export for revealed runs.
 
 ## How the microphone steers the dot
 

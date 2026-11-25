@@ -111,6 +111,7 @@ export function moveInMaze(maze, position, pixels) {
 }
 
 const pad = 14
+const wallWidth = 4
 const backgrounds = new WeakMap()
 
 function drawBackground(canvas, maze) {
@@ -151,7 +152,7 @@ function drawBackground(canvas, maze) {
     }
   }
   ctx.strokeStyle = '#3479ed'
-  ctx.lineWidth = 3
+  ctx.lineWidth = wallWidth
   ctx.lineCap = 'square'
   ctx.stroke()
 
@@ -200,5 +201,7 @@ export function drawMaze(canvas, maze, progress = 0) {
   const next = path[Math.min(step + 1, DISTANCE)]
   const x = current % columns + (next % columns - current % columns) * fraction
   const y = Math.floor(current / columns) + (Math.floor(next / columns) - Math.floor(current / columns)) * fraction
-  drawDot(ctx, pad + (x + .5) * CELL_SIZE, pad + (y + .5) * CELL_SIZE, progress === DISTANCE ? 11 : 9, '#ffe04e', '#ffc529')
+  const markerSize = CELL_SIZE - wallWidth
+  ctx.fillStyle = '#ffe04e'
+  ctx.fillRect(pad + x * CELL_SIZE + wallWidth / 2, pad + y * CELL_SIZE + wallWidth / 2, markerSize, markerSize)
 }

@@ -6,7 +6,7 @@ import { DISTANCE, drawMaze, mazeForRun, moveInMaze } from './maze.js'
 import { drawAppleRun, interpolateAppleStep, moveTowardApple, newAppleRun } from './apple.js'
 import { direction } from './steering.js'
 import { MicrophoneTRNG } from './microphone.js'
-import { CATCHES_PER_DAY, DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize, loadPlayers, savePlayer } from './history.js'
+import { DAYS_PER_BLOCK, dayKey, historyCSV, loadRuns, saveRun, summarize, loadPlayers, savePlayer } from './history.js'
 
 const byId = id => document.getElementById(id)
 const canvas = byId('arena')
@@ -79,10 +79,7 @@ function showProgress(renderResults = true) {
   const { blocks } = history
   const unavailable = 'Training history is unavailable on this device.'
   const progress = summarize(selectedRuns(gameMode), gameMode)
-  const todayCatches = gameMode === 'apple' ? selectedRuns('apple').filter(run => run.day === dayKey(new Date())).length : 0
-  const dailyProgress = gameMode === 'apple' && todayCatches < CATCHES_PER_DAY
-    ? ' · ' + todayCatches + ' of ' + CATCHES_PER_DAY + ' catches today' : ''
-  byId('progress-label').textContent = storageError ? unavailable : progressText(progress) + dailyProgress
+  byId('progress-label').textContent = storageError ? unavailable : progressText(progress)
   byId('history-progress').textContent = storageError ? unavailable : progressText(history)
   for (const mode of Object.keys(gameModes)) {
     byId('history-' + mode).setAttribute('aria-pressed', String(historyMode === mode))
@@ -95,8 +92,7 @@ function renderHistory(blocks) {
   const results = byId('results')
   results.replaceChildren()
   if (!blocks.length) {
-    const hint = historyMode === 'apple' ? ' Each day needs at least six catches.' : ''
-    results.append(element('p', 'Your first results unlock after seven training days.' + hint))
+    results.append(element('p', 'Your first results unlock after seven training days.'))
     return
   }
 
@@ -150,7 +146,8 @@ function renderHistory(blocks) {
       const dayGroup = element('details')
       const summary = element('summary')
       const title = element('span', undefined, 'day-title')
-      const unit = historyMode === 'apple' ? ' catches' : day.runs.length === 1 ? ' run' : ' runs'
+      const single = day.runs.length === 1
+      const unit = historyMode === 'apple' ? (single ? ' catch' : ' catches') : (single ? ' run' : ' runs')
       const description = historyMode === 'apple' ? ' average' : ''
       title.append(
         element('span', fullDate.format(dateFromKey(day.key)) + ' · ' + seconds(day.time) + description),
@@ -253,7 +250,7 @@ function setPage(selected) {
     byId('apple-count').hidden = gameMode !== 'apple'
     canvas.setAttribute('aria-label', gameMode === 'apple'
       ? 'A yellow dot moves toward a red apple. The arena wraps at every edge.'
-      : 'A yellow dot follows a winding blue corridor to a marked finish line.')
+      : 'A yellow square follows a winding blue corridor to a marked finish line.')
     ready()
   }
   if (selected === 'history') {

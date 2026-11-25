@@ -1,5 +1,4 @@
 export const DAYS_PER_BLOCK = 7
-export const CATCHES_PER_DAY = 6
 
 export function dayKey(date) {
   const part = n => String(n).padStart(2, '0')
@@ -18,9 +17,7 @@ export function summarize(runs, mode) {
     if (!days.has(run.day)) days.set(run.day, { key: run.day, runs: [] })
     days.get(run.day).runs.push(run)
   }
-  const ordered = [...days.values()]
-    .filter(day => mode !== 'apple' || day.runs.length >= CATCHES_PER_DAY)
-    .sort((a, b) => a.key.localeCompare(b.key))
+  const ordered = [...days.values()].sort((a, b) => a.key.localeCompare(b.key))
   const blocks = []
   while (ordered.length >= DAYS_PER_BLOCK) {
     const days = ordered.splice(0, DAYS_PER_BLOCK).map(day => ({
