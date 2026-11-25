@@ -1,30 +1,23 @@
+import { DEFAULT_BLOCKS_PER_SECOND, trngPlan } from './trng-config.js'
 
 class TRNG extends AudioWorkletProcessor {
-  #cfg = {
-    blockSize: 1000, // num of samples to collect before extracting random data
-    outputSize: 0, // size of random data to extract from the block
-    discardFactor: 0,
-    diagnostics: false,
-  }
-  /** @type {Float32Array} */
   #block
   #blockIndex = 0
   #report
   #reportFrame
   #samplesToUse
+  #pairsPerBlock
+  #word = 0
+  #bitCount = 0
 
-  constructor({processorOptions}) {
-    super(...arguments)
-    if (typeof processorOptions == 'object') {
-      for (const key in processorOptions) {
-        if (key in this.#cfg) {
-          this.#cfg[key] = processorOptions[key]
-        }
-      }
-    }
-    this.#block = new Float32Array(this.#cfg.blockSize)
-    this.#samplesToUse = Math.round(this.#cfg.blockSize * (1 - this.#cfg.discardFactor))
-    if (this.#cfg.diagnostics) {
+  constructor({ processorOptions = {} }) {
+    super()
+    const { blocksPerSecond = DEFAULT_BLOCKS_PER_SECOND, discardFactor = 0, diagnostics } = processorOptions
+    const plan = trngPlan(sampleRate, blocksPerSecond, discardFactor)
+    this.#block = new Float32Array(plan.blockSize)
+    this.#samplesToUse = plan.samplesToUse
+    this.#pairsPerBlock = plan.pairs
+    if (diagnostics) {
       this.#reportFrame = currentFrame
       this.#resetReport()
     }
@@ -40,7 +33,8 @@ class TRNG extends AudioWorkletProcessor {
         ...this.#report,
         seconds: (currentFrame - this.#reportFrame) / sampleRate,
         blockSize: this.#block.length,
-        samplesToUse: this.#samplesToUse
+        samplesToUse: this.#samplesToUse,
+        pendingBits: this.#bitCount
       } })
       this.#reportFrame = currentFrame
       this.#resetReport()
@@ -51,7 +45,7 @@ class TRNG extends AudioWorkletProcessor {
   #resetReport() {
     this.#report = {
       samples: 0, zeroSamples: 0, skippedSamples: 0, missingQuanta: 0,
-      sumSquares: 0, peak: 0, pairs: 0, ties: 0, words: 0, rejectedBlocks: 0
+      sumSquares: 0, peak: 0, pairs: 0, ties: 0, words: 0, emptyBlocks: 0
     }
   }
 
@@ -86,51 +80,38 @@ class TRNG extends AudioWorkletProcessor {
     }
   }
 
-  /** Use noise in the samples to create random data. */
   #samplesToRandomData() {
-    // The idea here is to make it so a soul/spirit (or mind over matter) could easily push for a desired outcome without having to change too many bits (less friction).
     const samples = this.#block
-    const samplesToUse = this.#samplesToUse
-    fisherYatesShuffle(samples) // (to pick from random time offsets)
-    // if a size is set use it else it's at least used 16 samples to create 1 byte
-    const bytes = new Uint8Array(this.#cfg.outputSize || Math.trunc(samplesToUse / 16))
-    let randomByte = 0, bitIndex = 0, sampleIndex = 0, byteIndex = 0
+    fisherYatesShuffle(samples)
+    const words = new Uint32Array(Math.floor((this.#bitCount + this.#pairsPerBlock) / 32))
+    let count = 0
     let ties = 0
-    while (sampleIndex <= samplesToUse - 2) {
-      // convert f32 to u16 then read bits from the abs (2 bits of noise)
-      const a = Math.abs(Math.trunc(samples[sampleIndex++] * 32767)) & 0b11
-      const b = Math.abs(Math.trunc(samples[sampleIndex++] * 32767)) & 0b11
-      if (a == b) {
+
+    for (let i = 0; i + 1 < this.#samplesToUse; i += 2) {
+      const a = Math.abs(Math.trunc(samples[i] * 32767)) & 0b11
+      const b = Math.abs(Math.trunc(samples[i + 1] * 32767)) & 0b11
+      if (a === b) {
         ties++
         continue
       }
-      if (a < b) {
-        randomByte |= 1 << bitIndex
-      }
-      if (++bitIndex == 8) {
-        bytes[byteIndex++] = randomByte
-        randomByte = 0
-        bitIndex = 0
-        if (this.#cfg.outputSize && byteIndex == this.#cfg.outputSize) {
-          break
-        }
+      if (a < b) this.#word |= 1 << this.#bitCount
+      if (++this.#bitCount === 32) {
+        words[count++] = this.#word
+        this.#word = 0
+        this.#bitCount = 0
       }
     }
+
     if (this.#report) {
-      this.#report.pairs += sampleIndex / 2
+      this.#report.pairs += this.#pairsPerBlock
       this.#report.ties += ties
-      if (byteIndex === this.#cfg.outputSize) this.#report.words++
-      else this.#report.rejectedBlocks++
+      this.#report.words += count
+      if (ties === this.#pairsPerBlock) this.#report.emptyBlocks++
     }
-    if (this.#cfg.outputSize == 0 || byteIndex == this.#cfg.outputSize) {
-      const buffer = (byteIndex == bytes.length ? bytes.buffer : bytes.buffer.slice(0, byteIndex))
-      this.port.postMessage({data: buffer}, [buffer])
-    } else {
-      this.port.postMessage({
-        data: bytes.buffer,
-        truncated: byteIndex,
-        error: `TRNG outputSize (${this.#cfg.outputSize}) is more than it could gather (${byteIndex}) from the blockSize (${this.#cfg.blockSize}). Which usually means that it's receiving poor input data or has a too small blockSize.`
-      }, [bytes.buffer])
+    // A partial word stays in the processor until later blocks supply its remaining bits.
+    if (count) {
+      const data = count === words.length ? words.buffer : words.buffer.slice(0, count * 4)
+      this.port.postMessage({ data }, [data])
     }
   }
 }

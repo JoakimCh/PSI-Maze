@@ -3,7 +3,7 @@ import { CAPTURE_BATCH_MS, WordCadence, canDeliver } from './word-cadence.js'
 
 const testDuration = 10000
 
-export function createRateTest(section, getCaptureSettings) {
+export function createRateTest(section, getCaptureSettings, setSampleRate) {
   const button = section.querySelector('#advanced-test')
   const result = section.querySelector('#advanced-test-result')
   const controls = [...section.querySelectorAll('input, button')].filter(control => control !== button)
@@ -38,8 +38,9 @@ export function createRateTest(section, getCaptureSettings) {
         for (const test of run.tests ?? []) test.cadence.add(word, now)
       }, fail, {
         ...settings,
-        onCapture() {
+        onCapture(setup) {
           if (active !== run) return
+          setSampleRate(setup.rate)
           result.textContent = 'Measuring usable words for 10 seconds…'
           const now = performance.now()
           run.tests = modes.map(([name, rate]) => ({ name, rate, cadence: new WordCadence(rate, now) }))

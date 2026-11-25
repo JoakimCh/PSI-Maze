@@ -14,10 +14,10 @@ const phoneLayout = matchMedia('(pointer: coarse) and (max-width: 600px), (point
 const status = byId('status')
 const start = byId('start')
 const navigation = ['maze', 'apple', 'history', 'diagnostics', 'advanced', 'players']
-const getCaptureSettings = createCaptureSettings(byId('advanced'))
-const diagnostics = createDiagnostics(byId('diagnostics'), getCaptureSettings)
+const { getSettings: getCaptureSettings, setSampleRate } = createCaptureSettings(byId('advanced'))
+const diagnostics = createDiagnostics(byId('diagnostics'), getCaptureSettings, setSampleRate)
 const gameModes = { maze: 'Maze', apple: 'Apple Catch' }
-const rateTest = createRateTest(byId('advanced'), getCaptureSettings)
+const rateTest = createRateTest(byId('advanced'), getCaptureSettings, setSampleRate)
 const countdown = byId('maze-countdown')
 const cancelCountdown = byId('cancel-countdown')
 const profileForm = byId('player-form')
@@ -419,8 +419,9 @@ async function launchRun() {
       run.cadence.add(word, performance.now())
     }, message => stopRun(run, message), {
       ...settings,
-      onCapture() {
+      onCapture(setup) {
         if (active !== run) return
+        setSampleRate(setup.rate)
         const now = performance.now()
         run.cadence = new WordCadence(run.rate, now)
         run.nextCheck = now + rateWindow + CAPTURE_BATCH_MS

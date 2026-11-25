@@ -1,3 +1,5 @@
+import { DEFAULT_BLOCKS_PER_SECOND } from './trng-config.js'
+
 export class MicrophoneTRNG {
   #context
   #stream
@@ -6,7 +8,7 @@ export class MicrophoneTRNG {
   #closed = false
 
   async start(onWord, onError, {
-    onDiagnostics, onCapture, audio = true, discardFactor = 0
+    onDiagnostics, onCapture, audio = true, discardFactor = 0, blocksPerSecond = DEFAULT_BLOCKS_PER_SECOND
   } = {}) {
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
       throw new Error('Microphone access needs a supported browser on HTTPS.')
@@ -47,8 +49,7 @@ export class MicrophoneTRNG {
       }
       this.#node = new AudioWorkletNode(this.#context, 'TRNG', {
         processorOptions: {
-          blockSize: Math.trunc(this.#context.sampleRate / 30),
-          outputSize: 4,
+          blocksPerSecond,
           discardFactor,
           diagnostics: !!onDiagnostics
         }
@@ -56,7 +57,9 @@ export class MicrophoneTRNG {
       this.#node.port.onmessage = ({ data }) => {
         if (this.#closed) return
         if (data.diagnostics) onDiagnostics?.(data.diagnostics)
-        else if (!data.error && data.data?.byteLength === 4) onWord?.(new Uint32Array(data.data)[0], setup)
+        else if (onWord && data.data?.byteLength) {
+          for (const word of new Uint32Array(data.data)) onWord(word, setup)
+        }
       }
       this.#node.onprocessorerror = () => onError('Microphone processing stopped. Try again.')
       track.addEventListener('ended', () => onError('Microphone disconnected. Try again.'), { once: true })

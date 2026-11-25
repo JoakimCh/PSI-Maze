@@ -64,7 +64,7 @@ function drawBalance(canvas, z) {
   }
 }
 
-export function createDiagnostics(section, getCaptureSettings) {
+export function createDiagnostics(section, getCaptureSettings, setSampleRate) {
   const get = id => section.querySelector('#diag-' + id)
   const start = get('start')
   const processing = get('processing')
@@ -107,7 +107,8 @@ export function createDiagnostics(section, getCaptureSettings) {
 
   function report(data) {
     get('words').textContent = (data.words / data.seconds).toFixed(1) + ' / s'
-    get('rejected').textContent = (data.rejectedBlocks / data.seconds).toFixed(1) + ' / s'
+    get('empty').textContent = (data.emptyBlocks / data.seconds).toFixed(1) + ' / s'
+    get('pending').textContent = String(data.pendingBits)
     get('rms').textContent = data.samples ? decibels(Math.sqrt(data.sumSquares / data.samples)) : '—'
     get('peak').textContent = data.samples ? decibels(data.peak) : '—'
     get('zero').textContent = percent(data.zeroSamples, data.samples)
@@ -121,6 +122,7 @@ export function createDiagnostics(section, getCaptureSettings) {
     if (stop()) return
     const current = { mic: new MicrophoneTRNG(), bits: 0, ones: 0 }
     const useGameProcessing = processing.getAttribute('aria-pressed') === 'true'
+    const settings = getCaptureSettings()
     run = current
     start.textContent = 'Cancel'
     processing.disabled = true
@@ -135,7 +137,8 @@ export function createDiagnostics(section, getCaptureSettings) {
         current.bits += 32
         current.ones += countSetBits(word)
       }, fail, {
-        audio: useGameProcessing ? getCaptureSettings().audio : true,
+        audio: useGameProcessing ? settings.audio : true,
+        blocksPerSecond: settings.blocksPerSecond,
         discardFactor: DISCARD_CHOICES[discardIndex],
         onDiagnostics: data => {
           if (run !== current) return
@@ -144,6 +147,7 @@ export function createDiagnostics(section, getCaptureSettings) {
         },
         onCapture: (setup, settings) => {
           if (run !== current) return
+          setSampleRate(setup.rate)
           get('mic').textContent = setup.label
           get('rates').textContent = (settings.sampleRate ? settings.sampleRate + ' Hz' : 'Not reported') +
             ' / ' + setup.rate + ' Hz'

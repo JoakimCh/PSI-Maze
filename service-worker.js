@@ -1,8 +1,8 @@
 const PREFIX = 'psi-maze:'
-const CACHE = PREFIX + 'v12'
+const CACHE = PREFIX + 'v13'
 const shell = [
   './index.html', './style.css', './app.js', './maze.js', './steering.js', './apple.js', './microphone.js', './capture-settings.js', './word-cadence.js', './rate-test.js', './history.js', './diagnostics.js',
-  './TRNG.audioWorklet.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png'
+  './TRNG.audioWorklet.js', './trng-config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png'
 ]
 const index = new URL('./index.html', self.registration.scope).href
 const assets = new Set(shell.map(path => new URL(path, self.registration.scope).href))

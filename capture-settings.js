@@ -1,3 +1,5 @@
+import { DEFAULT_BLOCKS_PER_SECOND, trngPlan } from './trng-config.js'
+
 export const PROCESSING_FLAGS = [
   ['noiseSuppression', 'Noise suppression'],
   ['echoCancellation', 'Echo cancellation'],
@@ -7,6 +9,7 @@ export const DISCARD_CHOICES = [0, .5, .75, .9, .95]
 export const DEFAULT_DISCARD_FACTOR = .9
 const defaultRates = { maze: 24, apple: 10 }
 const defaultMultiplier = 1
+const maxSteeringRate = 4096
 const storageKey = 'psi-maze-capture'
 const defaultProcessing = Object.freeze(Object.fromEntries(PROCESSING_FLAGS.map(([key]) => [key, false])))
 
@@ -20,8 +23,12 @@ export function discardLabel(factor) {
 }
 
 export function createCaptureSettings(section) {
-  const defaults = () => ({ processing: { ...defaultProcessing }, discardFactor: DEFAULT_DISCARD_FACTOR, rates: { ...defaultRates }, multiplier: defaultMultiplier })
+  const defaults = () => ({
+    processing: { ...defaultProcessing }, discardFactor: DEFAULT_DISCARD_FACTOR,
+    blocksPerSecond: DEFAULT_BLOCKS_PER_SECOND, rates: { ...defaultRates }, multiplier: defaultMultiplier
+  })
   let current = defaults()
+  let sampleRate
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey))
     for (const [key] of PROCESSING_FLAGS) {
@@ -29,15 +36,20 @@ export function createCaptureSettings(section) {
       if (typeof value === 'boolean' || value === null) current.processing[key] = value
     }
     if (DISCARD_CHOICES.includes(saved?.discardFactor)) current.discardFactor = saved.discardFactor
+    const blocks = saved?.blocksPerSecond
+    if (Number.isInteger(blocks) && blocks >= 5 && blocks <= 60) current.blocksPerSecond = blocks
     const multiplier = saved?.multiplier
     if (Number.isInteger(multiplier * 2) && multiplier >= .5 && multiplier <= 12) current.multiplier = multiplier
     for (const mode of Object.keys(defaultRates)) {
       const rate = saved?.rates?.[mode]
-      if (Number.isInteger(rate) && rate >= 1 && rate <= 30) current.rates[mode] = rate
+      if (Number.isInteger(rate) && rate >= 1 && rate <= maxSteeringRate) current.rates[mode] = rate
     }
   } catch {}
 
   const discard = section.querySelector('#advanced-discard')
+  const blocks = section.querySelector('#trng-blocks')
+  const blocksValue = section.querySelector('#trng-blocks-value')
+  const estimate = section.querySelector('#trng-estimate')
   const multiplier = section.querySelector('#movement-multiplier')
   const multiplierValue = section.querySelector('#movement-multiplier-value')
   const status = section.querySelector('#advanced-status')
@@ -53,9 +65,18 @@ export function createCaptureSettings(section) {
       button.textContent = label + ': ' + state
     }
     discard.textContent = discardLabel(current.discardFactor)
+    blocks.value = current.blocksPerSecond
+    blocksValue.textContent = current.blocksPerSecond + ' blocks/s'
+    const rate = sampleRate ?? 48000
+    const plan = trngPlan(rate, current.blocksPerSecond, current.discardFactor)
+    estimate.textContent = 'Estimated source: about ' + Math.round(plan.wordsPerSecond) + ' words/s at ' +
+      rate.toLocaleString() + ' Hz (' + (sampleRate ? 'measured sample rate' : 'assumed sample rate') + ', 25% ties).'
+    const sliderMax = Math.min(maxSteeringRate,
+      Math.max(30, Math.ceil(plan.wordsPerSecond * 1.5), ...Object.values(current.rates)))
     multiplier.value = current.multiplier
     multiplierValue.textContent = current.multiplier + '×'
     for (const [mode, input, output] of rateControls) {
+      input.max = sliderMax
       input.value = current.rates[mode]
       output.textContent = current.rates[mode] + ' words/s'
     }
@@ -93,16 +114,27 @@ export function createCaptureSettings(section) {
       save()
     }
   }
+  blocks.oninput = () => {
+    current.blocksPerSecond = blocks.valueAsNumber
+    save()
+  }
   multiplier.oninput = () => {
     current.multiplier = multiplier.valueAsNumber
     save()
   }
   render()
 
-  return () => ({
-    audio: audioConstraints(current.processing),
-    discardFactor: current.discardFactor,
-    rates: { ...current.rates },
-    multiplier: current.multiplier
-  })
+  return {
+    getSettings: () => ({
+      audio: audioConstraints(current.processing),
+      discardFactor: current.discardFactor,
+      blocksPerSecond: current.blocksPerSecond,
+      rates: { ...current.rates },
+      multiplier: current.multiplier
+    }),
+    setSampleRate(rate) {
+      sampleRate = rate
+      render()
+    }
+  }
 }

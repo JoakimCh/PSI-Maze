@@ -175,3 +175,6 @@ button[aria-pressed="true"] { border-color: var(--blue); color: var(--text); }
 .rate-settings input { display: block; width: 100%; min-height: 40px; accent-color: var(--yellow); }
 .rate-settings input:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
 #advanced-test-result { margin-block: .6rem; }
+
+#advanced section { margin-block: 1rem; }
+#advanced section h2 { font-size: 1.1rem; }
