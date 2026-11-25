@@ -12,6 +12,20 @@ function neighbors(cell, columns, rows) {
   ].filter(candidate => candidate >= 0)
 }
 
+function pathScore(path) {
+  let score = 0
+  let straight = 1
+  for (let i = 2; i < path.length; i++) {
+    if (path[i] - path[i - 1] === path[i - 1] - path[i - 2]) {
+      straight++
+    } else {
+      score += 1 - 3 * Math.max(0, straight - 5) ** 2
+      straight = 1
+    }
+  }
+  return score - 3 * Math.max(0, straight - 5) ** 2
+}
+
 function mazePath(columns, rows, side) {
   const edges = [
     cell => Math.floor(cell / columns),
@@ -34,8 +48,9 @@ function mazePath(columns, rows, side) {
   if (startDistance(path[0]) !== 0) path.reverse()
 
   let best = path
-  let bestTurns = 0
-  for (let step = 0; step < 6500; step++) {
+  let bestScore = pathScore(path)
+  for (let step = 0; step < 24000; step++) {
+    if (step && step % 2400 === 0) path = best
     const fromStart = Math.random() < 0.5
     const end = fromStart ? path[0] : path.at(-1)
     const next = fromStart ? path[1] : path.at(-2)
@@ -49,12 +64,10 @@ function mazePath(columns, rows, side) {
       ? path.slice(0, pivot).reverse().concat(path.slice(pivot))
       : path.slice(0, pivot + 1).concat(path.slice(pivot + 1).reverse())
     if (step < 350 || startDistance(path[0]) !== 0 || endDistance(path.at(-1)) !== 0) continue
-    const turns = path.slice(2).reduce((count, cell, i) =>
-      count + Number(cell - path[i + 1] !== path[i + 1] - path[i]), 0)
-    if (turns > bestTurns) {
+    const score = pathScore(path)
+    if (score > bestScore) {
       best = path
-      bestTurns = turns
-      if (bestTurns >= 74) break
+      bestScore = score
     }
   }
   return best
@@ -63,8 +76,8 @@ function mazePath(columns, rows, side) {
 export function mazeForRun(completed, portrait = false) {
   const sides = ['top', 'right', 'bottom', 'left']
   const side = completed % sides.length
-  const columns = portrait ? ROWS : COLUMNS
-  const rows = portrait ? COLUMNS : ROWS
+  const columns = portrait ? 12 : COLUMNS
+  const rows = portrait ? 15 : ROWS
   return {
     path: mazePath(columns, rows, side),
     columns,

@@ -1,5 +1,5 @@
 const PREFIX = 'psi-maze:'
-const CACHE = PREFIX + 'v8'
+const CACHE = PREFIX + 'v9'
 const shell = [
   './index.html', './style.css', './app.js', './maze.js', './steering.js', './apple.js', './microphone.js', './capture-settings.js', './history.js', './diagnostics.js',
   './TRNG.audioWorklet.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png'

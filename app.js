@@ -224,6 +224,7 @@ function setPage(selected) {
     else button.removeAttribute('aria-current')
   }
   const isGame = selected === 'maze' || selected === 'apple'
+  document.body.classList.toggle('game-page', isGame)
   byId('game').hidden = !isGame
   byId('history').hidden = selected !== 'history'
   byId('players').hidden = selected !== 'players'

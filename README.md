@@ -18,7 +18,7 @@ The game assigns one byte each to left, right, up, and down. Every set bit adds 
 
 Both boards are wide on desktops, TVs, and tablets, and tall on phones.
 
-- **Maze** uses the directional signal that points along the corridor. The dot can stop and can only move forward. Each run gets a new 179-step layout. Finishing a run advances the next entrance through the top, right, bottom and left sides, with the exit on the opposite edge.
+- **Maze** uses the directional signal that points along the corridor. The dot can stop and can only move forward. Each run gets a new 179-step layout, with a 12×15 grid on phones and an 18×10 grid on larger screens. The generator favors turns and shorter straightaways. Finishing a run advances the next entrance through the top, right, bottom and left sides, with the exit on the opposite edge.
 - **Apple Catch** uses both axes. The arena wraps at each edge. Red apples spawn at the same shortest distance from the yellow dot, and five catches complete a run.
 - **Players** are local to the browser. Use the player button to add, rename or switch profiles.
 - **History** reveals a player's results for each mode after every seven local calendar days with a completed run. Days can be nonconsecutive. A block's typical time is the median of its seven daily medians. Runs later on the seventh day still count toward that block. Elapsed times stay hidden during play. History and CSV exports show only revealed runs.
